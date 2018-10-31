@@ -1,4 +1,5 @@
 # peer-connector
+[![npm](https://img.shields.io/npm/v/peer-connector.svg)](https://www.npmjs.com/package/peer-connector)
 A module to accept and request WebRTC connections by using WebSockets.
 Simple WebRTC video/voice/screen and data channels.
 
@@ -23,7 +24,7 @@ Now open this URL in your browser: http://localhost:3000/
 import peerConnector from 'peer-connector';
 
 // commonjs
-var peerConnector require('peer-connector');
+var peerConnector = require('peer-connector');
 ```
 
 ```js

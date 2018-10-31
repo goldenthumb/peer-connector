@@ -1,10 +1,19 @@
 {
   "name": "peer-connector",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A module to accept and request WebRTC connections by using WebSockets.",
-  "main": "index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.es",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "dev": "node example/wsServer & webpack-dev-server --config example/webpack/devserver.js --hot --inline"
+    "dev": "node example/wsServer & webpack-dev-server --config example/webpack/devserver.js --hot --inline",
+    "prepublishOnly": "npm run build",
+    "build": "npm run build-cjs && npm run build-es && npm run build-umd",
+    "build-cjs": "bili --format cjs --filename index[suffix].js",
+    "build-umd": "poi build src/index.js --format umd --filename.js PeerConnector.js --module-name RTC",
+    "build-es": "bili --format es --filename index[suffix].js --no-js"
   },
   "repository": {
     "type": "git",
