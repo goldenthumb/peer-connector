@@ -1,4 +1,4 @@
-import peerConnector from 'peer-connector';
+import peerConnector from '../../dist/index.es';
 
 const getEl = id => document.getElementById(id);
 const createEl = el => document.createElement(el);
