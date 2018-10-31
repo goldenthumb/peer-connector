@@ -32,12 +32,9 @@
     "ws": "^6.1.0"
   },
   "dependencies": {
-    "axios": "^0.18.0",
     "detect-browser": "^3.0.1",
     "event-emitter": "^0.3.5",
     "get-browser-rtc": "^1.0.2",
-    "lodash": "^4.17.11",
-    "mqtt": "^2.18.8",
     "randombytes": "^2.0.6"
   }
 }

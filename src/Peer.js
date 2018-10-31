@@ -1,16 +1,12 @@
 import Emitter from 'event-emitter';
-import hasListeners from 'event-emitter/has-listeners';
 import PeerBuilder from './PeerBuilder';
-import { MESSAGE } from './Signal';
 
 export default class Peer {
-  constructor({ id, peer, signal }) {
+  constructor({ id, peer }) {
     this.id = id;
     this._peer = peer;
-    this._signal = signal;
     this._dc = {};
     this._emitter = new Emitter();
-    this._messageBuffer = [];
     this.localSdp = null;
     this.remoteSdp = null;
     this.localStream = null;
@@ -18,14 +14,6 @@ export default class Peer {
     this.onIceCandidate = null;
     this.onAddStream = null;
     this.onDataChannel = null;
-
-    this._signal.on(MESSAGE.DATA, data => {
-      if (!hasListeners(this._emitter, 'message')) {
-        this._messageBuffer.push(data);
-      }
-
-      this._emitter.emit('message', data);
-    })
   }
 
   isConnected() {
@@ -85,7 +73,7 @@ export default class Peer {
 
   attachDataChannel() {
     if (this._dc.value) {
-      this._dc.value.onmessage = ({ data }) => this._emitter.emit('buffer', data);
+      this._dc.value.onmessage = ({ data }) => this._emitter.emit('message', data);
       this._dc.value.onclose = () => this._emitter.emit('close');
       this._dc.value.onopen = () => this._emitter.emit('open');
       this._dc.value.onerror = (error) => {
@@ -103,9 +91,7 @@ export default class Peer {
       localStream: this.localStream,
       remoteStream: this.remoteStream,
       emitter: this._emitter,
-      dc: this._dc,
-      signal: this._signal,
-      messageBuffer: this._messageBuffer
+      dc: this._dc
     });
   }
 }

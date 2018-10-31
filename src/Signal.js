@@ -5,8 +5,7 @@ export const MESSAGE = {
   JOIN: '/PEER_CONNECTOR/join',
   REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
   SDP: '/PEER_CONNECTOR/sdp',
-  CANDIDATE: '/PEER_CONNECTOR/candidate',
-  DATA: '/PEER_CONNECTOR/data',
+  CANDIDATE: '/PEER_CONNECTOR/candidate'
 };
 
 export default class Signal {
@@ -21,14 +20,6 @@ export default class Signal {
 
   on(eventName, listener) {
     this._emitter.on(eventName, listener);
-  }
-
-  sendMessage(receiver, message) {
-    this._send(MESSAGE.DATA, {
-      receiver,
-      sender: this._id,
-      message
-    })
   }
 
   join() {

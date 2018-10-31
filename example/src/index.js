@@ -26,23 +26,17 @@ $peerConnect.addEventListener('click', async () => {
       $remoteVideo.srcObject = peer.remoteStream;
       $remoteVideo.play();
 
-      peer.sendMessage('send signal');
-
       peer.on('open', () => {
         console.log('data channel open');
-        peer.sendBuffer('data channel connected');
-      });
-
-      peer.on('buffer', (data) => {
-        console.log('buffer', data);
-
-        const p = createEl('p');
-        p.innerHTML = data;
-        $messages.appendChild(p);
+        peer.send('data channel connected');
       });
 
       peer.on('message', (data) => {
         console.log('message', data);
+
+        const p = createEl('p');
+        p.innerHTML = data;
+        $messages.appendChild(p);
       });
     });
   } catch (e) {

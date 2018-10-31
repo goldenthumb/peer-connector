@@ -66,8 +66,7 @@ export default class WebRTC {
     signal.on(MESSAGE.REQUEST_CONNECT, ({ sender }) => {
       this._peers[sender] = new Peer({
         id: sender,
-        peer: new RTCPeerConnection(this._config),
-        signal
+        peer: new RTCPeerConnection(this._config)
       });
 
       const peer = this._peers[sender];
@@ -78,8 +77,7 @@ export default class WebRTC {
       if (sdp.type === 'offer') {
         this._peers[sender] = new Peer({
           id: sender,
-          peer: new RTCPeerConnection(this._config),
-          signal
+          peer: new RTCPeerConnection(this._config)
         });
 
         const peer = this._peers[sender];
