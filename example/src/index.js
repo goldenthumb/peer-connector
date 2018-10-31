@@ -10,7 +10,7 @@ const $peerConnect = getEl('connect');
 
 $peerConnect.addEventListener('click', async () => {
   try {
-    const mediaType = { video: true, audio: true };
+    const mediaType = { screen: confirm('confirm: desktop screen, cancel: camera video'), video: true, audio: true };
     const servers = [{ host: 'localhost', port: 1234 }];
     const pc = await peerConnector({ servers, mediaType });
 

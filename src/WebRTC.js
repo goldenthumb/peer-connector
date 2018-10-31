@@ -54,6 +54,15 @@ export default class WebRTC {
     }
   }
 
+  _addPeer(id) {
+    this._peers[id] = new Peer({
+      id,
+      peer: new RTCPeerConnection(this._config)
+    });
+
+    return this._peers[id];
+  }
+
   _onMessage() {
     const signal = this._signal;
 
@@ -64,23 +73,13 @@ export default class WebRTC {
     });
 
     signal.on(MESSAGE.REQUEST_CONNECT, ({ sender }) => {
-      this._peers[sender] = new Peer({
-        id: sender,
-        peer: new RTCPeerConnection(this._config)
-      });
-
-      const peer = this._peers[sender];
+      const peer = this._addPeer(sender);
       this._peerConnect(peer);
     });
 
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
       if (sdp.type === 'offer') {
-        this._peers[sender] = new Peer({
-          id: sender,
-          peer: new RTCPeerConnection(this._config)
-        });
-
-        const peer = this._peers[sender];
+        const peer = this._addPeer(sender);
         this._attachAnswerEvents(peer);
         await peer.setRemoteDescription(sdp);
         this._createAnswer(peer);
