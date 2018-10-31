@@ -1,6 +1,6 @@
 {
   "name": "peer-connector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A module to accept and request WebRTC connections by using WebSockets.",
   "main": "./dist/index.cjs",
   "module": "./dist/index.es",
@@ -19,8 +19,25 @@
     "type": "git",
     "url": "git+https://github.com/goldenthumb/peer-connector.git"
   },
+  "keywords": [
+    "peer connector",
+    "data",
+    "data channel",
+    "data channel stream",
+    "data channels",
+    "p2p",
+    "peer",
+    "peer",
+    "peer-to-peer",
+    "stream",
+    "video",
+    "voice",
+    "webrtc",
+    "webrtc stream",
+    "screen desktop"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/goldenthumb/peer-connector/issues"
   },
@@ -45,5 +62,8 @@
     "event-emitter": "^0.3.5",
     "get-browser-rtc": "^1.0.2",
     "randombytes": "^2.0.6"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
