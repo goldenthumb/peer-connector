@@ -33,11 +33,27 @@ var peerConnector = require('peer-connector');
   try {
     const mediaType = { video: true, audio: true } // default mediaType
     // mediaType => video, audio, screen
-    // screen can only be used by firefox.
-    const servers = [{ host: 'localhost', port: 1234 }];
-    const pc = await peerConnector({ servers, mediaType });
+    // screen can only be used by firefox and chrome(chrome requires chrome extensions).
 
-    console.log(rtc.localStream); // local stream;
+    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } // default config
+    const servers = [
+      {
+        host,      // string required
+        port,      // number required
+        ssl,       // bool optional(default false)
+        username,  // string optional
+        password,  // string optional
+      },
+      ...
+    ];
+
+    const pc = await peerConnector({
+      servers,     // required
+      mediaType,   // optional
+      config,      // optional
+    });
+
+    console.log(rtc.stream); // local stream;
 
     pc.on('connect', (peer) => {
       // peer is generated each time WebRTC is connected.

@@ -4,12 +4,16 @@ import requestScreen from './requestScreen';
 import Signal from './Signal';
 import WebRTC from './WebRTC';
 
-const peerConnector = async ({ servers, mediaType }) => {
+const CONFIG = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+const peerConnector = async ({ servers, mediaType, config = CONFIG }) => {
   mediaType = await normalizeMediaType(mediaType);
 
   const ws = await connect(servers);
   const signal = new Signal(ws);
-  const rtc = new WebRTC({ signal, mediaType });
+  const rtc = new WebRTC({ signal, mediaType, config });
 
   return rtc._init();
 };

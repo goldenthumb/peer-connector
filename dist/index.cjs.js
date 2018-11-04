@@ -10,17 +10,20 @@ var getBrowserRTC = _interopDefault(require('get-browser-rtc'));
 var connect = function connect(_ref) {
   var host = _ref.host,
       port = _ref.port,
+      username = _ref.username,
+      password = _ref.password,
       _ref$ssl = _ref.ssl,
       ssl = _ref$ssl === void 0 ? false : _ref$ssl;
   return new Promise(function (resolve, reject) {
-    var webSocket = new WebSocket("".concat(ssl ? 'wss' : 'ws', "://").concat(host, ":").concat(port));
+    var accessAuth = username && password ? "".concat(username, ":").concat(password, "@") : '';
+    var webSocket = new WebSocket("".concat(ssl ? 'wss' : 'ws', "://").concat(accessAuth).concat(host, ":").concat(port));
 
     webSocket.onopen = function () {
       return resolve(webSocket);
     };
 
     webSocket.onerror = function () {
-      return reject(new Error('faild connect!'));
+      return reject(new Error('connect failed.'));
     };
   });
 };
@@ -505,7 +508,8 @@ var WebRTC =
 function () {
   function WebRTC(_ref) {
     var signal = _ref.signal,
-        mediaType = _ref.mediaType;
+        mediaType = _ref.mediaType,
+        config = _ref.config;
 
     _classCallCheck(this, WebRTC);
 
@@ -515,16 +519,12 @@ function () {
 
     this._emitter = new Emitter();
     this._channelName = randombytes(20).toString('hex');
-    this._signal = signal;
     this._peers = new Map();
     this._connectors = new Map();
     this._stream = null;
+    this._signal = signal;
     this._options = mediaType;
-    this._config = {
-      iceServers: [{
-        urls: 'stun:stun.l.google.com:19302'
-      }]
-    };
+    this._config = config;
   }
 
   _createClass(WebRTC, [{
@@ -580,26 +580,35 @@ function () {
         signal.requestPeer(sender);
       });
       signal.on(MESSAGE.REQUEST_CONNECT, function (_ref3) {
-        var sender = _ref3.sender;
+        return new Promise(function ($return, $error) {
+          var sender, peer, connector, channel;
+          sender = _ref3.sender;
+          peer = _this._addPeer(sender);
+          connector = _this._connectors.get(sender);
+          channel = connector.createDataChannel(_this._channelName);
 
-        var peer = _this._addPeer(sender);
+          peer._setDataChannel(channel);
 
-        var connector = _this._connectors.get(sender);
+          peer._attachDataChannel();
 
-        var channel = connector.createDataChannel(_this._channelName);
+          _this._attachEvents({
+            peer: peer,
+            connector: connector
+          });
 
-        peer._setDataChannel(channel);
+          return Promise.resolve(_this._createOffer({
+            peer: peer,
+            connector: connector
+          })).then(function ($await_3) {
+            try {
+              _this._emitIfConnectedPeer(peer);
 
-        peer._attachDataChannel();
-
-        _this._attachEvents({
-          peer: peer,
-          connector: connector
-        });
-
-        _this._createOffer({
-          peer: peer,
-          connector: connector
+              signal.sendSdp(peer.id, peer.localSdp);
+              return $return();
+            } catch ($boundEx) {
+              return $error($boundEx);
+            }
+          }, $error);
         });
       });
       signal.on(MESSAGE.SDP, function (_ref4) {
@@ -625,18 +634,23 @@ function () {
               peer._attachDataChannel();
             };
 
-            return Promise.resolve(connector.setRemoteDescription(sdp)).then(function ($await_3) {
+            return Promise.resolve(connector.setRemoteDescription(sdp)).then(function ($await_4) {
               try {
-                peer._setRemoteSdp(sdp);
-
-                _this._createAnswer({
+                return Promise.resolve(_this._createAnswer({
                   peer: peer,
                   connector: connector
-                });
+                })).then(function ($await_5) {
+                  try {
+                    peer._setRemoteSdp(sdp);
 
-                _this._emitIfConnectedPeer(peer);
+                    _this._emitIfConnectedPeer(peer);
 
-                return $If_1.call(this);
+                    signal.sendSdp(peer.id, peer.localSdp);
+                    return $If_1.call(this);
+                  } catch ($boundEx) {
+                    return $error($boundEx);
+                  }
+                }.bind(this), $error);
               } catch ($boundEx) {
                 return $error($boundEx);
               }
@@ -644,7 +658,7 @@ function () {
           } else {
             _peer = _this._peers.get(sender);
             _connector = _this._connectors.get(sender);
-            return Promise.resolve(_connector.setRemoteDescription(sdp)).then(function ($await_4) {
+            return Promise.resolve(_connector.setRemoteDescription(sdp)).then(function ($await_6) {
               try {
                 _peer._setRemoteSdp(sdp);
 
@@ -704,23 +718,19 @@ function () {
       return new Promise(function ($return, $error) {
         var peer, connector, sdp;
         peer = _ref10.peer, connector = _ref10.connector;
-        return Promise.resolve(connector.createOffer()).then(function ($await_5) {
+        return Promise.resolve(connector.createOffer()).then(function ($await_7) {
           try {
-            sdp = $await_5;
+            sdp = $await_7;
             connector.setLocalDescription(sdp);
 
             peer._setLocalSdp(sdp);
-
-            this._emitIfConnectedPeer(peer);
-
-            this._signal.sendSdp(peer.id, sdp);
 
             return $return();
           } catch ($boundEx) {
             return $error($boundEx);
           }
-        }.bind(this), $error);
-      }.bind(this));
+        }, $error);
+      });
     }
   }, {
     key: "_createAnswer",
@@ -728,23 +738,19 @@ function () {
       return new Promise(function ($return, $error) {
         var peer, connector, sdp;
         peer = _ref11.peer, connector = _ref11.connector;
-        return Promise.resolve(connector.createAnswer()).then(function ($await_6) {
+        return Promise.resolve(connector.createAnswer()).then(function ($await_8) {
           try {
-            sdp = $await_6;
+            sdp = $await_8;
             connector.setLocalDescription(sdp);
 
             peer._setLocalSdp(sdp);
-
-            this._emitIfConnectedPeer(peer);
-
-            this._signal.sendSdp(peer.id, sdp);
 
             return $return();
           } catch ($boundEx) {
             return $error($boundEx);
           }
-        }.bind(this), $error);
-      }.bind(this));
+        }, $error);
+      });
     }
   }, {
     key: "stream",
@@ -766,10 +772,17 @@ function () {
   return WebRTC;
 }();
 
+var CONFIG = {
+  iceServers: [{
+    urls: 'stun:stun.l.google.com:19302'
+  }]
+};
+
 var peerConnector = function peerConnector(_ref) {
   return new Promise(function ($return, $error) {
-    var servers, mediaType, ws, signal, rtc;
-    servers = _ref.servers, mediaType = _ref.mediaType;
+    var servers, mediaType, _ref$config, config, ws, signal, rtc;
+
+    servers = _ref.servers, mediaType = _ref.mediaType, _ref$config = _ref.config, config = _ref$config === void 0 ? CONFIG : _ref$config;
     return Promise.resolve(normalizeMediaType(mediaType)).then(function ($await_2) {
       try {
         mediaType = $await_2;
@@ -779,7 +792,8 @@ var peerConnector = function peerConnector(_ref) {
             signal = new Signal(ws);
             rtc = new WebRTC({
               signal: signal,
-              mediaType: mediaType
+              mediaType: mediaType,
+              config: config
             });
             return $return(rtc._init());
           } catch ($boundEx) {

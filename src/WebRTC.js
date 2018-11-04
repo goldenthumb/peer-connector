@@ -7,21 +7,19 @@ import Connector from './Connector';
 import { MESSAGE } from './Signal';
 
 export default class WebRTC {
-  constructor({ signal, mediaType }) {
+  constructor({ signal, mediaType, config }) {
     if (!WebRTC.support()) {
       throw new Error('Not support getUserMedia API');
     }
 
     this._emitter = new Emitter();
     this._channelName = randombytes(20).toString('hex');
-    this._signal = signal;
     this._peers = new Map();
     this._connectors = new Map();
     this._stream = null;
+    this._signal = signal;
     this._options = mediaType;
-    this._config = {
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    };
+    this._config = config;
   }
 
   static support() {
@@ -55,6 +53,7 @@ export default class WebRTC {
   _addPeer(id) {
     const peer = new Peer(id);
     const connector = new Connector(new RTCPeerConnection(this._config));
+
     this._peers.set(id, peer);
     this._connectors.set(id, connector);
 
@@ -70,7 +69,7 @@ export default class WebRTC {
       signal.requestPeer(sender);
     });
 
-    signal.on(MESSAGE.REQUEST_CONNECT, ({ sender }) => {
+    signal.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
       const peer = this._addPeer(sender);
       const connector = this._connectors.get(sender);
       const channel = connector.createDataChannel(this._channelName);
@@ -79,7 +78,10 @@ export default class WebRTC {
       peer._attachDataChannel();
 
       this._attachEvents({ peer, connector });
-      this._createOffer({ peer, connector });
+      await this._createOffer({ peer, connector });
+
+      this._emitIfConnectedPeer(peer);
+      signal.sendSdp(peer.id, peer.localSdp);
     });
 
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
@@ -95,14 +97,18 @@ export default class WebRTC {
         };
 
         await connector.setRemoteDescription(sdp);
+        await this._createAnswer({ peer, connector });
         peer._setRemoteSdp(sdp);
-        this._createAnswer({ peer, connector });
+
         this._emitIfConnectedPeer(peer);
+        signal.sendSdp(peer.id, peer.localSdp);
       } else {
         const peer = this._peers.get(sender);
         const connector = this._connectors.get(sender);
+
         await connector.setRemoteDescription(sdp);
         peer._setRemoteSdp(sdp);
+
         this._emitIfConnectedPeer(peer);
       }
     });
@@ -132,15 +138,11 @@ export default class WebRTC {
     const sdp = await connector.createOffer();
     connector.setLocalDescription(sdp);
     peer._setLocalSdp(sdp);
-    this._emitIfConnectedPeer(peer);
-    this._signal.sendSdp(peer.id, sdp);
   }
 
   async _createAnswer({ peer, connector }) {
     const sdp = await connector.createAnswer();
     connector.setLocalDescription(sdp);
     peer._setLocalSdp(sdp);
-    this._emitIfConnectedPeer(peer);
-    this._signal.sendSdp(peer.id, sdp);
   }
 }
