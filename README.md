@@ -63,10 +63,6 @@ var peerConnector = require('peer-connector');
 
       peer.on('message', (data) => {
         console.log('message', data);
-
-        const p = createEl('p');
-        p.innerHTML = data;
-        $messages.appendChild(p);
       });
     });
   } catch (e) {

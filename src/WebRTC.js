@@ -55,12 +55,14 @@ export default class WebRTC {
   }
 
   _addPeer(id) {
-    this._peers[id] = new Peer({
+    const peer = new Peer({
       id,
-      peer: new RTCPeerConnection(this._config)
+      peer: new RTCPeerConnection(this._config),
     });
 
-    return this._peers[id];
+    this._peers.set(id, peer);
+
+    return this._peers.get(id);
   }
 
   _onMessage() {
@@ -80,29 +82,33 @@ export default class WebRTC {
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
       if (sdp.type === 'offer') {
         const peer = this._addPeer(sender);
-        this._attachAnswerEvents(peer);
+        this._attachPeerEvents(peer);
+        peer.onDataChannel = ({ channel }) => {
+          peer.setDataChannel(channel);
+          peer.attachDataChannel();
+        };
         await peer.setRemoteDescription(sdp);
         this._createAnswer(peer);
       } else {
-        const peer = this._peers[sender];
+        const peer = this._peers.get(sender);
         await peer.setRemoteDescription(sdp);
       }
     });
 
     signal.on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
-      const peer = this._peers[sender];
+      const peer = this._peers.get(sender);
       peer.addIceCandidate(candidate);
     });
   }
 
   _peerConnect(peer) {
     peer.createDataChannel(this._channelName);
-
-    this._attachOfferEvents(peer);
+    this._attachPeerEvents(peer);
+    peer.attachDataChannel();
     this._createOffer(peer);
   }
 
-  _attachOfferEvents(peer) {
+  _attachPeerEvents(peer) {
     peer.setLocalStream(this._stream);
 
     peer.onIceCandidate = ({ candidate }) => {
@@ -114,8 +120,6 @@ export default class WebRTC {
       peer.setRemoteStream(stream);
       this._emitIfConnectedPeer(peer);
     };
-
-    peer.attachDataChannel();
   }
 
   async _createOffer(peer) {
@@ -123,25 +127,6 @@ export default class WebRTC {
     peer.setLocalDescription(sdp);
     this._emitIfConnectedPeer(peer);
     this._signal.sendSdp(peer.id, sdp);
-  }
-
-  _attachAnswerEvents(peer) {
-    peer.setLocalStream(this._stream);
-
-    peer.onIceCandidate = ({ candidate }) => {
-      if (!candidate) return;
-      this._signal.sendCandidate(peer.id, candidate);
-    };
-
-    peer.onAddStream = ({ stream }) => {
-      peer.setRemoteStream(stream);
-      this._emitIfConnectedPeer(peer);
-    };
-
-    peer.onDataChannel = ({ channel }) => {
-      peer.setDataChannel(channel);
-      peer.attachDataChannel();
-    };
   }
 
   async _createAnswer(peer) {
