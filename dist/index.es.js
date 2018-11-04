@@ -148,35 +148,15 @@ class Signal {
   }
 }
 
-class PeerBuilder {
-  constructor(options) {
-    this._id = options.id;
-    this._localSdp = options.localSdp;
-    this._remoteSdp = options.remoteSdp;
-    this._localStream = options.localStream;
-    this._remoteStream = options.remoteStream;
-    this._emitter = options.emitter;
-    this._dc = options.dc;
-  }
-
-  get id() {
-    return this._id;
-  }
-
-  get localSdp() {
-    return this._localSdp;
-  }
-
-  get remoteSdp() {
-    return this._remoteSdp;
-  }
-
-  get localStream() {
-    return this._localStream;
-  }
-
-  get remoteStream() {
-    return this._remoteStream;
+class Peer {
+  constructor(id) {
+    this.id = id;
+    this._dc = null;
+    this._emitter = new Emitter();
+    this.localSdp = null;
+    this.remoteSdp = null;
+    this.localStream = null;
+    this.remoteStream = null;
   }
 
   on(eventName, listener) {
@@ -184,27 +164,50 @@ class PeerBuilder {
   }
 
   send(data) {
-    this._dc.value && this._dc.value.send(data);
+    this._dc && this._dc.send(data);
+  }
+
+  _isConnected() {
+    return this.localSdp && this.remoteSdp && this.remoteStream;
+  }
+
+  _setLocalStream(stream) {
+    this.localStream = stream;
+  }
+
+  _setRemoteStream(stream) {
+    this.remoteStream = stream;
+  }
+
+  _setDataChannel(channel) {
+    this._dc = channel;
+  }
+
+  _setLocalSdp(sdp) {
+    this.localSdp = sdp;
+  }
+
+  _setRemoteSdp(sdp) {
+    this.remoteSdp = sdp;
+  }
+
+  _attachDataChannel() {
+    this._dc.onmessage = ({ data }) => this._emitter.emit('message', data);
+    this._dc.onclose = () => this._emitter.emit('close');
+    this._dc.onopen = () => this._emitter.emit('open');
+    this._dc.onerror = (error) => {
+      if (!this._emitter.hasListeners(this._emitter, 'error')) throw error;
+      this._emitter.emit('error', error);
+    };
   }
 }
 
-class Peer {
-  constructor({ id, peer }) {
-    this.id = id;
+class Connector {
+  constructor(peer) {
     this._peer = peer;
-    this._dc = {};
-    this._emitter = new Emitter();
-    this.localSdp = null;
-    this.remoteSdp = null;
-    this.localStream = null;
-    this.remoteStream = null;
     this.onIceCandidate = null;
     this.onAddStream = null;
     this.onDataChannel = null;
-  }
-
-  isConnected() {
-    return this.localSdp && this.remoteSdp && this.remoteStream;
   }
 
   set onIceCandidate(func) {
@@ -219,67 +222,32 @@ class Peer {
     this._peer.ondatachannel = func;
   }
 
-  setRemoteStream(stream) {
-    this.remoteStream = stream;
-  }
-
-  setLocalStream(stream) {
-    this.localStream = stream;
-    this._peer.addStream(stream);
-  }
-
-  setDataChannel(channel) {
-    this._dc.value = channel;
-  }
-
-  setLocalDescription(sdp) {
-    this.localSdp = sdp;
-    return this._peer.setLocalDescription(this.localSdp);
-  }
-
-  setRemoteDescription(sdp) {
-    this.remoteSdp = sdp;
-    return this._peer.setRemoteDescription(this.remoteSdp);
-  }
-
-  addIceCandidate(candidate) {
-    return this._peer.addIceCandidate(candidate);
-  }
-
   createOffer() {
     return this._peer.createOffer();
-  }
-
-  createDataChannel(channelName) {
-    this._dc.value = this._peer.createDataChannel(channelName);
   }
 
   createAnswer() {
     return this._peer.createAnswer();
   }
 
-  attachDataChannel() {
-    if (this._dc.value) {
-      this._dc.value.onmessage = ({ data }) => this._emitter.emit('message', data);
-      this._dc.value.onclose = () => this._emitter.emit('close');
-      this._dc.value.onopen = () => this._emitter.emit('open');
-      this._dc.value.onerror = (error) => {
-        if (!this._emitter.hasListeners(this._emitter, 'error')) throw error;
-        this._emitter.emit('error', error);
-      };
-    }
+  createDataChannel(channelName) {
+    return this._peer.createDataChannel(channelName);
   }
 
-  build() {
-    return new PeerBuilder({
-      id: this.id,
-      localSdp: this.localSdp,
-      remoteSdp: this.remoteSdp,
-      localStream: this.localStream,
-      remoteStream: this.remoteStream,
-      emitter: this._emitter,
-      dc: this._dc
-    });
+  addStream(stream) {
+    return this._peer.addStream(stream);
+  }
+
+  setLocalDescription(sdp) {
+    return this._peer.setLocalDescription(sdp);
+  }
+
+  setRemoteDescription(sdp) {
+    return this._peer.setRemoteDescription(sdp);
+  }
+
+  addIceCandidate(candidate) {
+    return this._peer.addIceCandidate(candidate);
   }
 }
 
@@ -293,7 +261,7 @@ class WebRTC {
     this._channelName = randombytes(20).toString('hex');
     this._signal = signal;
     this._peers = new Map();
-    this._buildPeers = [];
+    this._connectors = new Map();
     this._stream = null;
     this._options = mediaType;
     this._config = {
@@ -314,7 +282,7 @@ class WebRTC {
   }
 
   get peers() {
-    return this._buildPeers;
+    return this._peers;
   }
 
   async _init() {
@@ -324,21 +292,18 @@ class WebRTC {
   }
 
   _emitIfConnectedPeer(peer) {
-    if (peer.isConnected()) {
-      const buildPeer = peer.build();
-      this._buildPeers.push(buildPeer);
-
-      this._emitter.emit('connect', buildPeer);
+    if (peer._isConnected()) {
+      this._emitter.emit('connect', peer);
     }
   }
 
   _addPeer(id) {
-    this._peers[id] = new Peer({
-      id,
-      peer: new RTCPeerConnection(this._config)
-    });
+    const peer = new Peer(id);
+    const connector = new Connector(new RTCPeerConnection(this._config));
+    this._peers.set(id, peer);
+    this._connectors.set(id, connector);
 
-    return this._peers[id];
+    return this._peers.get(id);
   }
 
   _onMessage() {
@@ -352,79 +317,74 @@ class WebRTC {
 
     signal.on(MESSAGE.REQUEST_CONNECT, ({ sender }) => {
       const peer = this._addPeer(sender);
-      this._peerConnect(peer);
+      const connector = this._connectors.get(sender);
+      const channel = connector.createDataChannel(this._channelName);
+
+      peer._setDataChannel(channel);
+      peer._attachDataChannel();
+
+      this._attachEvents({ peer, connector });
+      this._createOffer({ peer, connector });
     });
 
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
       if (sdp.type === 'offer') {
         const peer = this._addPeer(sender);
-        this._attachAnswerEvents(peer);
-        await peer.setRemoteDescription(sdp);
-        this._createAnswer(peer);
+        const connector = this._connectors.get(sender);
+
+        this._attachEvents({ peer, connector });
+
+        connector.onDataChannel = ({ channel }) => {
+          peer._setDataChannel(channel);
+          peer._attachDataChannel();
+        };
+
+        await connector.setRemoteDescription(sdp);
+        peer._setRemoteSdp(sdp);
+        this._createAnswer({ peer, connector });
+        this._emitIfConnectedPeer(peer);
       } else {
-        const peer = this._peers[sender];
-        await peer.setRemoteDescription(sdp);
+        const peer = this._peers.get(sender);
+        const connector = this._connectors.get(sender);
+        await connector.setRemoteDescription(sdp);
+        peer._setRemoteSdp(sdp);
+        this._emitIfConnectedPeer(peer);
       }
     });
 
     signal.on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
-      const peer = this._peers[sender];
-      peer.addIceCandidate(candidate);
+      const connector = this._connectors.get(sender);
+      connector.addIceCandidate(candidate);
     });
   }
 
-  _peerConnect(peer) {
-    peer.createDataChannel(this._channelName);
+  _attachEvents({ peer, connector }) {
+    peer._setLocalStream(this._stream);
+    connector.addStream(this._stream);
 
-    this._attachOfferEvents(peer);
-    this._createOffer(peer);
-  }
-
-  _attachOfferEvents(peer) {
-    peer.setLocalStream(this._stream);
-
-    peer.onIceCandidate = ({ candidate }) => {
+    connector.onIceCandidate = ({ candidate }) => {
       if (!candidate) return;
       this._signal.sendCandidate(peer.id, candidate);
     };
 
-    peer.onAddStream = ({ stream }) => {
-      peer.setRemoteStream(stream);
+    connector.onAddStream = ({ stream }) => {
+      peer._setRemoteStream(stream);
       this._emitIfConnectedPeer(peer);
     };
-
-    peer.attachDataChannel();
   }
 
-  async _createOffer(peer) {
-    const sdp = await peer.createOffer();
-    peer.setLocalDescription(sdp);
+  async _createOffer({ peer, connector }) {
+    const sdp = await connector.createOffer();
+    connector.setLocalDescription(sdp);
+    peer._setLocalSdp(sdp);
     this._emitIfConnectedPeer(peer);
     this._signal.sendSdp(peer.id, sdp);
   }
 
-  _attachAnswerEvents(peer) {
-    peer.setLocalStream(this._stream);
-
-    peer.onIceCandidate = ({ candidate }) => {
-      if (!candidate) return;
-      this._signal.sendCandidate(peer.id, candidate);
-    };
-
-    peer.onAddStream = ({ stream }) => {
-      peer.setRemoteStream(stream);
-      this._emitIfConnectedPeer(peer);
-    };
-
-    peer.onDataChannel = ({ channel }) => {
-      peer.setDataChannel(channel);
-      peer.attachDataChannel();
-    };
-  }
-
-  async _createAnswer(peer) {
-    const sdp = await peer.createAnswer();
-    peer.setLocalDescription(sdp);
+  async _createAnswer({ peer, connector }) {
+    const sdp = await connector.createAnswer();
+    connector.setLocalDescription(sdp);
+    peer._setLocalSdp(sdp);
     this._emitIfConnectedPeer(peer);
     this._signal.sendSdp(peer.id, sdp);
   }
