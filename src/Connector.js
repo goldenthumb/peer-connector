@@ -1,8 +1,10 @@
+import 'webrtc-adapter';
+
 export default class Connector {
   constructor(peer) {
     this._peer = peer;
     this.onIceCandidate = null;
-    this.onAddStream = null;
+    this.onTrack = null;
     this.onDataChannel = null;
   }
 
@@ -10,8 +12,8 @@ export default class Connector {
     this._peer.onicecandidate = func;
   }
 
-  set onAddStream(func) {
-    this._peer.onaddstream = func;
+  set onTrack(func) {
+    this._peer.ontrack = func;
   }
 
   set onDataChannel(func) {
@@ -27,11 +29,16 @@ export default class Connector {
   }
 
   createDataChannel(channelName) {
+    if (!this._peer.createDataChannel) return;
     return this._peer.createDataChannel(channelName);
   }
 
-  addStream(stream) {
-    return this._peer.addStream(stream);
+  addTrack(stream) {
+    if (!stream) return;
+
+    stream.getTracks().forEach(track => {
+      this._peer.addTrack(track, stream);
+    });
   }
 
   setLocalDescription(sdp) {
@@ -39,7 +46,7 @@ export default class Connector {
   }
 
   setRemoteDescription(sdp) {
-    return this._peer.setRemoteDescription(sdp);
+    return this._peer.setRemoteDescription(new RTCSessionDescription(sdp));
   }
 
   addIceCandidate(candidate) {

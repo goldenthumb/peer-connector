@@ -1,6 +1,7 @@
 import { detect } from 'detect-browser';
 import Emitter from 'event-emitter';
 import randombytes from 'randombytes';
+import 'webrtc-adapter';
 import getBrowserRTC from 'get-browser-rtc';
 
 const connect = ({ host, port, username, password, ssl = false }) => {
@@ -169,16 +170,15 @@ class Peer {
     this._dc && this._dc.send(data);
   }
 
-  _isConnected() {
-    return this.localSdp && this.remoteSdp && this.remoteStream;
-  }
-
   _setLocalStream(stream) {
     this.localStream = stream;
   }
 
   _setRemoteStream(stream) {
+    if (this.remoteStream) return;
+
     this.remoteStream = stream;
+    this._emitter.emit('stream', stream);
   }
 
   _setDataChannel(channel) {
@@ -194,6 +194,8 @@ class Peer {
   }
 
   _attachDataChannel() {
+    if (!this._dc) return;
+
     this._dc.onmessage = ({ data }) => this._emitter.emit('message', data);
     this._dc.onclose = () => this._emitter.emit('close');
     this._dc.onopen = () => this._emitter.emit('open');
@@ -208,7 +210,7 @@ class Connector {
   constructor(peer) {
     this._peer = peer;
     this.onIceCandidate = null;
-    this.onAddStream = null;
+    this.onTrack = null;
     this.onDataChannel = null;
   }
 
@@ -216,8 +218,8 @@ class Connector {
     this._peer.onicecandidate = func;
   }
 
-  set onAddStream(func) {
-    this._peer.onaddstream = func;
+  set onTrack(func) {
+    this._peer.ontrack = func;
   }
 
   set onDataChannel(func) {
@@ -233,11 +235,16 @@ class Connector {
   }
 
   createDataChannel(channelName) {
+    if (!this._peer.createDataChannel) return;
     return this._peer.createDataChannel(channelName);
   }
 
-  addStream(stream) {
-    return this._peer.addStream(stream);
+  addTrack(stream) {
+    if (!stream) return;
+
+    stream.getTracks().forEach(track => {
+      this._peer.addTrack(track, stream);
+    });
   }
 
   setLocalDescription(sdp) {
@@ -245,7 +252,7 @@ class Connector {
   }
 
   setRemoteDescription(sdp) {
-    return this._peer.setRemoteDescription(sdp);
+    return this._peer.setRemoteDescription(new RTCSessionDescription(sdp));
   }
 
   addIceCandidate(candidate) {
@@ -291,10 +298,8 @@ class WebRTC {
     return this;
   }
 
-  _emitIfConnectedPeer(peer) {
-    if (peer._isConnected()) {
-      this._emitter.emit('connect', peer);
-    }
+  _getPeer(id) {
+    return this._peers.get(id) || this._addPeer(id);
   }
 
   _addPeer(id) {
@@ -327,15 +332,15 @@ class WebRTC {
       this._attachEvents({ peer, connector });
       await this._createOffer({ peer, connector });
 
-      this._emitIfConnectedPeer(peer);
       signal.sendSdp(peer.id, peer.localSdp);
     });
 
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
-      if (sdp.type === 'offer') {
-        const peer = this._addPeer(sender);
-        const connector = this._connectors.get(sender);
+      const peer = this._getPeer(sender);
+      const connector = this._connectors.get(sender);
+      this._emitter.emit('connect', peer);
 
+      if (sdp.type === 'offer') {
         this._attachEvents({ peer, connector });
 
         connector.onDataChannel = ({ channel }) => {
@@ -346,17 +351,10 @@ class WebRTC {
         await connector.setRemoteDescription(sdp);
         await this._createAnswer({ peer, connector });
         peer._setRemoteSdp(sdp);
-
-        this._emitIfConnectedPeer(peer);
         signal.sendSdp(peer.id, peer.localSdp);
       } else {
-        const peer = this._peers.get(sender);
-        const connector = this._connectors.get(sender);
-
         await connector.setRemoteDescription(sdp);
         peer._setRemoteSdp(sdp);
-
-        this._emitIfConnectedPeer(peer);
       }
     });
 
@@ -364,21 +362,6 @@ class WebRTC {
       const connector = this._connectors.get(sender);
       connector.addIceCandidate(candidate);
     });
-  }
-
-  _attachEvents({ peer, connector }) {
-    peer._setLocalStream(this._stream);
-    connector.addStream(this._stream);
-
-    connector.onIceCandidate = ({ candidate }) => {
-      if (!candidate) return;
-      this._signal.sendCandidate(peer.id, candidate);
-    };
-
-    connector.onAddStream = ({ stream }) => {
-      peer._setRemoteStream(stream);
-      this._emitIfConnectedPeer(peer);
-    };
   }
 
   async _createOffer({ peer, connector }) {
@@ -391,6 +374,20 @@ class WebRTC {
     const sdp = await connector.createAnswer();
     connector.setLocalDescription(sdp);
     peer._setLocalSdp(sdp);
+  }
+
+  _attachEvents({ peer, connector }) {
+    peer._setLocalStream(this._stream);
+    connector.addTrack(this._stream);
+
+    connector.onIceCandidate = ({ candidate }) => {
+      if (!candidate) return;
+      this._signal.sendCandidate(peer.id, candidate);
+    };
+
+    connector.onTrack = ({ streams }) => {
+      peer._setRemoteStream(streams[0]);
+    };
   }
 }
 

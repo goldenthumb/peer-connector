@@ -19,16 +19,15 @@ export default class Peer {
     this._dc && this._dc.send(data);
   }
 
-  _isConnected() {
-    return this.localSdp && this.remoteSdp && this.remoteStream;
-  }
-
   _setLocalStream(stream) {
     this.localStream = stream;
   }
 
   _setRemoteStream(stream) {
+    if (this.remoteStream) return;
+
     this.remoteStream = stream;
+    this._emitter.emit('stream', stream);
   }
 
   _setDataChannel(channel) {
@@ -44,6 +43,8 @@ export default class Peer {
   }
 
   _attachDataChannel() {
+    if (!this._dc) return;
+
     this._dc.onmessage = ({ data }) => this._emitter.emit('message', data);
     this._dc.onclose = () => this._emitter.emit('close');
     this._dc.onopen = () => this._emitter.emit('open');

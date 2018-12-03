@@ -44,10 +44,8 @@ export default class WebRTC {
     return this;
   }
 
-  _emitIfConnectedPeer(peer) {
-    if (peer._isConnected()) {
-      this._emitter.emit('connect', peer);
-    }
+  _getPeer(id) {
+    return this._peers.get(id) || this._addPeer(id);
   }
 
   _addPeer(id) {
@@ -80,15 +78,15 @@ export default class WebRTC {
       this._attachEvents({ peer, connector });
       await this._createOffer({ peer, connector });
 
-      this._emitIfConnectedPeer(peer);
       signal.sendSdp(peer.id, peer.localSdp);
     });
 
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
-      if (sdp.type === 'offer') {
-        const peer = this._addPeer(sender);
-        const connector = this._connectors.get(sender);
+      const peer = this._getPeer(sender);
+      const connector = this._connectors.get(sender);
+      this._emitter.emit('connect', peer);
 
+      if (sdp.type === 'offer') {
         this._attachEvents({ peer, connector });
 
         connector.onDataChannel = ({ channel }) => {
@@ -99,17 +97,10 @@ export default class WebRTC {
         await connector.setRemoteDescription(sdp);
         await this._createAnswer({ peer, connector });
         peer._setRemoteSdp(sdp);
-
-        this._emitIfConnectedPeer(peer);
         signal.sendSdp(peer.id, peer.localSdp);
       } else {
-        const peer = this._peers.get(sender);
-        const connector = this._connectors.get(sender);
-
         await connector.setRemoteDescription(sdp);
         peer._setRemoteSdp(sdp);
-
-        this._emitIfConnectedPeer(peer);
       }
     });
 
@@ -117,21 +108,6 @@ export default class WebRTC {
       const connector = this._connectors.get(sender);
       connector.addIceCandidate(candidate);
     });
-  }
-
-  _attachEvents({ peer, connector }) {
-    peer._setLocalStream(this._stream);
-    connector.addStream(this._stream);
-
-    connector.onIceCandidate = ({ candidate }) => {
-      if (!candidate) return;
-      this._signal.sendCandidate(peer.id, candidate);
-    };
-
-    connector.onAddStream = ({ stream }) => {
-      peer._setRemoteStream(stream);
-      this._emitIfConnectedPeer(peer);
-    };
   }
 
   async _createOffer({ peer, connector }) {
@@ -144,5 +120,19 @@ export default class WebRTC {
     const sdp = await connector.createAnswer();
     connector.setLocalDescription(sdp);
     peer._setLocalSdp(sdp);
+  }
+
+  _attachEvents({ peer, connector }) {
+    peer._setLocalStream(this._stream);
+    connector.addTrack(this._stream);
+
+    connector.onIceCandidate = ({ candidate }) => {
+      if (!candidate) return;
+      this._signal.sendCandidate(peer.id, candidate);
+    };
+
+    connector.onTrack = ({ streams }) => {
+      peer._setRemoteStream(streams[0]);
+    };
   }
 }

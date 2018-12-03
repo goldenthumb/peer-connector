@@ -72,6 +72,10 @@ var peerConnector = require('peer-connector');
       //   send => send data by data channel
       // }
 
+      peer.on('stream', (stream) => {
+        console.log(stream); // remote stream;
+      });
+
       peer.on('open', () => {
         console.log('data channel open');
         peer.send('data channel connected');

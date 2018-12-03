@@ -9,22 +9,27 @@ const $messages = getEl('messages');
 const $peerConnect = getEl('connect');
 
 $peerConnect.addEventListener('click', async () => {
+  const mediaType = { screen: confirm('confirm: desktop screen, cancel: camera video'), video: true, audio: true };
+  const servers = [{ host: 'localhost', port: 1234 }];
+
   try {
-    const mediaType = { screen: confirm('confirm: desktop screen, cancel: camera video'), video: true, audio: true };
-    const servers = [{ host: 'localhost', port: 1234 }];
     const pc = await peerConnector({ servers, mediaType });
 
-    $local.srcObject = pc.stream;
+    if (pc.stream) {
+      $local.srcObject = pc.stream;
+    }
 
     pc.on('connect', (peer) => {
       console.log('peer connected', peer);
       console.log('peers info', pc.peers);
 
-      const $remoteVideo = createEl('video');
-      $videoGroup.appendChild($remoteVideo);
-      $remoteVideo.style.width = '33%';
-      $remoteVideo.srcObject = peer.remoteStream;
-      $remoteVideo.play();
+      peer.on('stream', (stream) => {
+        const $remoteVideo = createEl('video');
+        $videoGroup.appendChild($remoteVideo);
+        $remoteVideo.style.width = '33%';
+        $remoteVideo.autoplay = true;
+        $remoteVideo.srcObject = stream;
+      });
 
       peer.on('open', () => {
         console.log('data channel open');
