@@ -57,8 +57,6 @@ var peerConnector = require('peer-connector');
 
     pc.on('connect', (peer) => {
       // peer is generated each time WebRTC is connected.
-
-      console.log('peer connected', peer);
       console.log('peers info', pc.peers);
 
       // peer
