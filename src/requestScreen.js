@@ -29,7 +29,7 @@ const getStreamId = async () => {
 
   window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
 
-  return await new Promise(resolve => {
+  return new Promise(resolve => {
     window.addEventListener('message', function listener({ data: { type, streamId } }) {
       if (type === 'SCREEN_SHARE') {
         window.removeEventListener('message', listener);
@@ -48,7 +48,7 @@ const isInstalledExtension = async () => {
   const img = document.createElement('img');
   img.src = `chrome-extension://${EXTENSION_ID}/icon.png`;
 
-  return await new Promise((resolve) => {
+  return new Promise((resolve) => {
     img.onload = () => resolve(true);
     img.onerror = () => resolve(false);
   });
