@@ -9,6 +9,10 @@ export default async () => {
     case 'firefox':
       return { mediaSource: 'screen' };
     case 'chrome':
+      if (!await isInstalledExtension()) {
+        window.location.href = EXTENSION_URL;
+      }
+
       return  {
         mandatory: {
           chromeMediaSource: 'desktop',
@@ -23,10 +27,6 @@ export default async () => {
 };
 
 const getStreamId = async () => {
-  if (!await isInstalledExtension()) {
-    window.location.href = EXTENSION_URL;
-  }
-
   window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
 
   return new Promise(resolve => {
