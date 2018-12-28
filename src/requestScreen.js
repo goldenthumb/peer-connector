@@ -5,29 +5,21 @@ const EXTENSION_ID = 'mopiaiibclcaiolndiidmkpejmcpjmcf';
 const EXTENSION_URL = `https://chrome.google.com/webstore/detail/screen-sharing-extension/${EXTENSION_ID}`;
 
 export default async () => {
-  if (!isSupport()) {
-    throw new Error('not support browser');
+  switch (userAgent.name) {
+    case 'firefox':
+      return { mediaSource: 'screen' };
+    case 'chrome':
+      return  {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: await getStreamId(),
+          maxWidth: window.screen.width,
+          maxHeight: window.screen.height
+        }
+      };
+    default:
+      throw new Error('not support browser');
   }
-
-  if (userAgent.name === 'firefox') {
-    return { mediaSource: 'screen' };
-  }
-
-  if (userAgent.name === 'chrome') {
-    return {
-      mandatory: {
-        chromeMediaSource: 'desktop',
-        chromeMediaSourceId: await getStreamId(),
-        maxWidth: window.screen.width,
-        maxHeight: window.screen.height
-      }
-    };
-  }
-};
-
-const isSupport = () => {
-  const browser = userAgent.name;
-  return browser === 'chrome' || browser === 'firefox';
 };
 
 const getStreamId = async () => {
