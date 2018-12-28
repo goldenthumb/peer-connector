@@ -1,5 +1,4 @@
 import Emitter from 'event-emitter';
-import getBrowserRTC from 'get-browser-rtc';
 import randombytes from 'randombytes';
 
 import Peer from './Peer';
@@ -8,10 +7,6 @@ import { MESSAGE } from './Signal';
 
 export default class WebRTC {
   constructor({ signal, mediaType, config }) {
-    if (!WebRTC.support()) {
-      throw new Error('Not support getUserMedia API');
-    }
-
     this._emitter = new Emitter();
     this._channelName = randombytes(20).toString('hex');
     this._peers = new Map();
@@ -20,10 +15,6 @@ export default class WebRTC {
     this._signal = signal;
     this._options = mediaType;
     this._config = config;
-  }
-
-  static support() {
-    return !!getBrowserRTC();
   }
 
   on(eventName, listener) {
