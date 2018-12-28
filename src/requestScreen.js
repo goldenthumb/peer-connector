@@ -26,23 +26,17 @@ export default async () => {
   }
 };
 
-const getStreamId = async () => {
+const getStreamId = () => new Promise(resolve => {
   window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
-
-  return new Promise(resolve => {
-    window.addEventListener('message', function listener({ data: { type, streamId } }) {
-      window.removeEventListener('message', listener);
-      resolve(type === 'SCREEN_SHARE' ? streamId : false)
-    });
+  window.addEventListener('message', function listener({ data: { type, streamId } }) {
+    window.removeEventListener('message', listener);
+    resolve(type === 'SCREEN_SHARE' ? streamId : false)
   });
-};
+});
 
-const isInstalledExtension = async () => {
+const isInstalledExtension = () => new Promise((resolve) => {
   const img = document.createElement('img');
   img.src = `chrome-extension://${EXTENSION_ID}/icon.png`;
-
-  return new Promise((resolve) => {
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-  });
-};
+  img.onload = () => resolve(true);
+  img.onerror = () => resolve(false);
+});
