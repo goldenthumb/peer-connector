@@ -14,8 +14,6 @@ export default class Signal {
     this._ws = webSocket;
     this._ws.onmessage = this._onMessage.bind(this);
     this._id = randombytes(20).toString('hex');
-
-    this._onMessage();
   }
 
   on(eventName, listener) {
