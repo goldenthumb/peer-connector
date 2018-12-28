@@ -31,15 +31,8 @@ const getStreamId = async () => {
 
   return new Promise(resolve => {
     window.addEventListener('message', function listener({ data: { type, streamId } }) {
-      if (type === 'SCREEN_SHARE') {
-        window.removeEventListener('message', listener);
-        resolve(streamId);
-      }
-
-      if (type === 'SCREEN_CANCEL') {
-        window.removeEventListener('message', listener);
-        resolve(false);
-      }
+      window.removeEventListener('message', listener);
+      resolve(type === 'SCREEN_SHARE' ? streamId : false)
     });
   });
 };
