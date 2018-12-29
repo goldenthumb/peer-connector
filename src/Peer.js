@@ -37,7 +37,7 @@ export default class Peer {
 
   createDataChannel(channelName) {
     if (!this._pc.createDataChannel) return;
-    return this._pc.createDataChannel(channelName);
+    this._setDataChannel(this._pc.createDataChannel(channelName))
   }
 
   setLocalDescription(sdp) {
@@ -60,7 +60,7 @@ export default class Peer {
     this._dc && this._dc.send(data);
   }
 
-  setDataChannel(dc) {
+  _setDataChannel(dc) {
     this._dc = dc;
 
     dc.onmessage = ({ data }) => this._emitter.emit('message', data);
@@ -91,5 +91,7 @@ export default class Peer {
     this._pc.ontrack = ({ streams }) => {
       if (!this.remoteStream) this._emitter.emit('stream', this.remoteStream = streams[0]);
     };
+
+    this._pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
   }
 }

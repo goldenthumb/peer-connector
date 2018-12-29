@@ -62,9 +62,8 @@ export default class WebRTC {
 
     signal.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
       const peer = this._newPeer(sender);
-      const channel = peer.createDataChannel(this._channelName);
-      if(channel) peer.setDataChannel(channel)
-
+      peer.createDataChannel(this._channelName);
+      
       await this._createOffer(peer);
 
       signal.sendSdp(peer.id, peer.localSdp);
@@ -75,10 +74,6 @@ export default class WebRTC {
       this._emitter.emit('connect', peer);
 
       if (sdp.type === 'offer') {
-        peer.onDataChannel = ({ channel }) => {
-          peer.setDataChannel(channel);
-        };
-
         await peer.setRemoteDescription(sdp);
         await this._createAnswer(peer);
         peer._setRemoteSdp(sdp);
