@@ -1,44 +1,55 @@
 import Emitter from 'event-emitter';
 
 export default class Peer {
-  constructor(id, peer) {
-    this.id = id;
-    this._peer = peer;
+  constructor({id, peerConnection, localStream, onIceCandidate}) {
+    this._id = id;
+    this._pc = peerConnection;
     this._dc = null;
     this._emitter = new Emitter();
     this.localSdp = null;
     this.remoteSdp = null;
-    this.localStream = null;
     this.remoteStream = null;
+    this._localStream = localStream;
+    this._onIceCandidate = onIceCandidate
+
+    this._attachEvents()
+  }
+
+  get id(){
+    return this._id
+  }
+
+  get localStream(){
+    return this._localStream
   }
 
   set onDataChannel(func) {
-    this._peer.ondatachannel = func;
+    this._pc.ondatachannel = func;
   }
 
   createOffer() {
-    return this._peer.createOffer();
+    return this._pc.createOffer();
   }
 
   createAnswer() {
-    return this._peer.createAnswer();
+    return this._pc.createAnswer();
   }
 
   createDataChannel(channelName) {
-    if (!this._peer.createDataChannel) return;
-    return this._peer.createDataChannel(channelName);
+    if (!this._pc.createDataChannel) return;
+    return this._pc.createDataChannel(channelName);
   }
 
   setLocalDescription(sdp) {
-    return this._peer.setLocalDescription(sdp);
+    return this._pc.setLocalDescription(sdp);
   }
 
   setRemoteDescription(sdp) {
-    return this._peer.setRemoteDescription(new RTCSessionDescription(sdp));
+    return this._pc.setRemoteDescription(new RTCSessionDescription(sdp));
   }
 
   addIceCandidate(candidate) {
-    return this._peer.addIceCandidate(candidate);
+    return this._pc.addIceCandidate(candidate);
   }
 
   on(eventName, listener) {
@@ -69,15 +80,15 @@ export default class Peer {
     this.remoteSdp = sdp;
   }
 
-  attachEvents(localStream, onIceCandidate) {
-    this.localStream = localStream;
-    localStream.getTracks().forEach(track => this._peer.addTrack(track, localStream));
+  _attachEvents() {
+    const localStream = this.localStream;
+    localStream.getTracks().forEach(track => this._pc.addTrack(track, localStream));
 
-    this._peer.onicecandidate = ({ candidate }) => {
-      if (candidate) onIceCandidate(this.id, candidate)
+    this._pc.onicecandidate = ({ candidate }) => {
+      if (candidate) this._onIceCandidate(this.id, candidate)
     };
 
-    this._peer.ontrack = ({ streams }) => {
+    this._pc.ontrack = ({ streams }) => {
       if (!this.remoteStream) this._emitter.emit('stream', this.remoteStream = streams[0]);
     };
   }

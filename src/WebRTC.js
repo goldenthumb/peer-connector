@@ -40,7 +40,13 @@ export default class WebRTC {
   }
 
   _newPeer(id) {
-    const peer = new Peer(id, new RTCPeerConnection(this._config));
+    const peer = new Peer({
+      id, 
+      peerConnection: new RTCPeerConnection(this._config), 
+      localStream: this.stream, 
+      onIceCandidate: this._onPeerIceCandidate
+    });
+
     this._peers.set(id, peer);
     return peer;
   }
@@ -57,12 +63,8 @@ export default class WebRTC {
     signal.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
       const peer = this._newPeer(sender);
       const channel = peer.createDataChannel(this._channelName);
+      if(channel) peer.setDataChannel(channel)
 
-      if(channel){
-        peer.setDataChannel(channel)
-      }
-
-      peer.attachEvents(this.stream, this._onPeerIceCandidate);
       await this._createOffer(peer);
 
       signal.sendSdp(peer.id, peer.localSdp);
@@ -73,7 +75,6 @@ export default class WebRTC {
       this._emitter.emit('connect', peer);
 
       if (sdp.type === 'offer') {
-        peer.attachEvents(this.stream, this._onPeerIceCandidate);
         peer.onDataChannel = ({ channel }) => {
           peer.setDataChannel(channel);
         };
