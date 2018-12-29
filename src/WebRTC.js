@@ -13,7 +13,7 @@ export default class WebRTC {
     this._connectors = new Map();
     this._stream = null;
     this._signal = signal;
-    this._options = mediaType;
+    this._mediaType = mediaType;
     this._config = config;
   }
 
@@ -30,7 +30,7 @@ export default class WebRTC {
   }
 
   async _init() {
-    this._stream = await navigator.mediaDevices.getUserMedia(this._options);
+    this._stream = await navigator.mediaDevices.getUserMedia(this._mediaType);
     this._onMessage();
     return this;
   }
