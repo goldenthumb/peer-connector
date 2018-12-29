@@ -63,10 +63,7 @@ export default class WebRTC {
     signal.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
       const peer = this._newPeer(sender);
       peer.createDataChannel(this._channelName);
-      
-      await this._createOffer(peer);
-
-      signal.sendSdp(peer.id, peer.localSdp);
+      signal.sendSdp(peer.id, await peer.createOfferSdp());
     });
 
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
@@ -88,12 +85,6 @@ export default class WebRTC {
       const peer = this._getPeerOrNew(sender);
       peer.addIceCandidate(candidate);
     });
-  }
-
-  async _createOffer(peer) {
-    const sdp = await peer.createOffer();
-    peer.setLocalDescription(sdp);
-    peer._setLocalSdp(sdp);
   }
 
   async _createAnswer(peer) {

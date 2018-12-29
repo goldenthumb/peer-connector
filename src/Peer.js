@@ -27,10 +27,6 @@ export default class Peer {
     this._pc.ondatachannel = func;
   }
 
-  createOffer() {
-    return this._pc.createOffer();
-  }
-
   createAnswer() {
     return this._pc.createAnswer();
   }
@@ -93,5 +89,11 @@ export default class Peer {
     };
 
     this._pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
+  }
+
+  async createOfferSdp() {
+    const sdp = this.localSdp = await this._pc.createOffer();
+    this._pc.setLocalDescription(sdp);
+    return sdp
   }
 }
