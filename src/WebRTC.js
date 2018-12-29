@@ -2,7 +2,6 @@ import Emitter from 'event-emitter';
 import randombytes from 'randombytes';
 
 import Peer from './Peer';
-import Connector from './Connector';
 import { MESSAGE } from './Signal';
 
 export default class WebRTC {
@@ -10,7 +9,6 @@ export default class WebRTC {
     this._emitter = new Emitter();
     this._channelName = randombytes(20).toString('hex');
     this._peers = new Map();
-    this._connectors = new Map();
     this._stream = null;
     this._signal = signal;
     this._mediaType = mediaType;
@@ -36,17 +34,13 @@ export default class WebRTC {
   }
 
   _getPeerOrNew(id) {
-    return this._peers.get(id) || this._newPeerAndConnector(id).peer;
+    return this._peers.get(id) || this._newPeer(id);
   }
 
-  _newPeerAndConnector(id) {
-    const peer = new Peer(id);
-    const connector = new Connector(new RTCPeerConnection(this._config));
-
+  _newPeer(id) {
+    const peer = new Peer(id, new RTCPeerConnection(this._config));
     this._peers.set(id, peer);
-    this._connectors.set(id, connector);
-
-    return {peer, connector};
+    return peer;
   }
 
   _onMessage() {
@@ -59,70 +53,67 @@ export default class WebRTC {
     });
 
     signal.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
-      const {peer, connector} = this._newPeerAndConnector(sender);
-      const channel = connector.createDataChannel(this._channelName);
+      const peer = this._newPeer(sender);
+      const channel = peer.createDataChannel(this._channelName);
 
       if(channel){
         peer.setDataChannel(channel)
       }
 
-      this._attachEvents({ peer, connector });
-      await this._createOffer({ peer, connector });
+      this._attachEvents(peer);
+      await this._createOffer(peer);
 
       signal.sendSdp(peer.id, peer.localSdp);
     });
 
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
       const peer = this._getPeerOrNew(sender);
-      const connector = this._connectors.get(sender);
       this._emitter.emit('connect', peer);
 
       if (sdp.type === 'offer') {
-        this._attachEvents({ peer, connector });
-
-        connector.onDataChannel = ({ channel }) => {
-          peer._setDataChannel(channel);
-          peer._attachDataChannel();
+        this._attachEvents(peer);
+        peer.onDataChannel = ({ channel }) => {
+          peer.setDataChannel(channel);
         };
 
-        await connector.setRemoteDescription(sdp);
-        await this._createAnswer({ peer, connector });
+        await peer.setRemoteDescription(sdp);
+        await this._createAnswer(peer);
         peer._setRemoteSdp(sdp);
         signal.sendSdp(peer.id, peer.localSdp);
       } else {
-        await connector.setRemoteDescription(sdp);
+        await peer.setRemoteDescription(sdp);
         peer._setRemoteSdp(sdp);
       }
     });
 
     signal.on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
-      const connector = this._connectors.get(sender);
-      connector.addIceCandidate(candidate);
+      const peer = this._getPeerOrNew(sender);
+      peer.addIceCandidate(candidate);
     });
   }
 
-  async _createOffer({ peer, connector }) {
-    const sdp = await connector.createOffer();
-    connector.setLocalDescription(sdp);
+  async _createOffer(peer) {
+    const sdp = await peer.createOffer();
+    peer.setLocalDescription(sdp);
     peer._setLocalSdp(sdp);
   }
 
-  async _createAnswer({ peer, connector }) {
-    const sdp = await connector.createAnswer();
-    connector.setLocalDescription(sdp);
+  async _createAnswer(peer) {
+    const sdp = await peer.createAnswer();
+    peer.setLocalDescription(sdp);
     peer._setLocalSdp(sdp);
   }
 
-  _attachEvents({ peer, connector }) {
+  _attachEvents(peer) {
     peer._setLocalStream(this._stream);
-    connector.addTrack(this._stream);
+    peer.addTrack(this._stream);
 
-    connector.onIceCandidate = ({ candidate }) => {
+    peer.onIceCandidate = ({ candidate }) => {
       if (!candidate) return;
       this._signal.sendCandidate(peer.id, candidate);
     };
 
-    connector.onTrack = ({ streams }) => {
+    peer.onTrack = ({ streams }) => {
       peer._setRemoteStream(streams[0]);
     };
   }
