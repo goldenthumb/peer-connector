@@ -11,14 +11,6 @@ export default class Peer {
     this.localStream = null;
     this.remoteStream = null;
   }
- 
-  set onIceCandidate(func) {
-    this._peer.onicecandidate = func;
-  }
-
-  set onTrack(func) {
-    this._peer.ontrack = func;
-  }
 
   set onDataChannel(func) {
     this._peer.ondatachannel = func;
@@ -35,14 +27,6 @@ export default class Peer {
   createDataChannel(channelName) {
     if (!this._peer.createDataChannel) return;
     return this._peer.createDataChannel(channelName);
-  }
-
-  addTrack(stream) {
-    if (!stream) return;
-
-    stream.getTracks().forEach(track => {
-      this._peer.addTrack(track, stream);
-    });
   }
 
   setLocalDescription(sdp) {
@@ -65,17 +49,6 @@ export default class Peer {
     this._dc && this._dc.send(data);
   }
 
-  _setLocalStream(stream) {
-    this.localStream = stream;
-  }
-
-  _setRemoteStream(stream) {
-    if (this.remoteStream) return;
-
-    this.remoteStream = stream;
-    this._emitter.emit('stream', stream);
-  }
-
   setDataChannel(dc) {
     this._dc = dc;
 
@@ -94,5 +67,18 @@ export default class Peer {
 
   _setRemoteSdp(sdp) {
     this.remoteSdp = sdp;
+  }
+
+  attachEvents(localStream, onIceCandidate) {
+    this.localStream = localStream;
+    localStream.getTracks().forEach(track => this._peer.addTrack(track, localStream));
+
+    this._peer.onicecandidate = ({ candidate }) => {
+      if (candidate) onIceCandidate(this.id, candidate)
+    };
+
+    this._peer.ontrack = ({ streams }) => {
+      if (!this.remoteStream) this._emitter.emit('stream', this.remoteStream = streams[0]);
+    };
   }
 }

@@ -13,6 +13,8 @@ export default class WebRTC {
     this._signal = signal;
     this._mediaType = mediaType;
     this._config = config;
+
+    this._onPeerIceCandidate = this._onPeerIceCandidate.bind(this)
   }
 
   on(eventName, listener) {
@@ -60,7 +62,7 @@ export default class WebRTC {
         peer.setDataChannel(channel)
       }
 
-      this._attachEvents(peer);
+      peer.attachEvents(this.stream, this._onPeerIceCandidate);
       await this._createOffer(peer);
 
       signal.sendSdp(peer.id, peer.localSdp);
@@ -71,7 +73,7 @@ export default class WebRTC {
       this._emitter.emit('connect', peer);
 
       if (sdp.type === 'offer') {
-        this._attachEvents(peer);
+        peer.attachEvents(this.stream, this._onPeerIceCandidate);
         peer.onDataChannel = ({ channel }) => {
           peer.setDataChannel(channel);
         };
@@ -104,17 +106,7 @@ export default class WebRTC {
     peer._setLocalSdp(sdp);
   }
 
-  _attachEvents(peer) {
-    peer._setLocalStream(this._stream);
-    peer.addTrack(this._stream);
-
-    peer.onIceCandidate = ({ candidate }) => {
-      if (!candidate) return;
-      this._signal.sendCandidate(peer.id, candidate);
-    };
-
-    peer.onTrack = ({ streams }) => {
-      peer._setRemoteStream(streams[0]);
-    };
+  _onPeerIceCandidate(peerId, candidate){
+    this._signal.sendCandidate(peerId, candidate);
   }
 }
