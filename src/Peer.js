@@ -23,21 +23,9 @@ export default class Peer {
     return this._localStream
   }
 
-  set onDataChannel(func) {
-    this._pc.ondatachannel = func;
-  }
-
-  createAnswer() {
-    return this._pc.createAnswer();
-  }
-
   createDataChannel(channelName) {
     if (!this._pc.createDataChannel) return;
     this._setDataChannel(this._pc.createDataChannel(channelName))
-  }
-
-  setLocalDescription(sdp) {
-    return this._pc.setLocalDescription(sdp);
   }
 
   setRemoteDescription(sdp) {
@@ -68,10 +56,6 @@ export default class Peer {
     };
   }
 
-  _setLocalSdp(sdp) {
-    this.localSdp = sdp;
-  }
-
   _setRemoteSdp(sdp) {
     this.remoteSdp = sdp;
   }
@@ -93,6 +77,12 @@ export default class Peer {
 
   async createOfferSdp() {
     const sdp = this.localSdp = await this._pc.createOffer();
+    this._pc.setLocalDescription(sdp);
+    return sdp
+  }
+
+  async createAnswerSdp(){
+    const sdp = this.localSdp = await this._pc.createAnswer();
     this._pc.setLocalDescription(sdp);
     return sdp
   }

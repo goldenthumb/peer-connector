@@ -72,9 +72,8 @@ export default class WebRTC {
 
       if (sdp.type === 'offer') {
         await peer.setRemoteDescription(sdp);
-        await this._createAnswer(peer);
         peer._setRemoteSdp(sdp);
-        signal.sendSdp(peer.id, peer.localSdp);
+        signal.sendSdp(peer.id, await peer.createAnswerSdp());
       } else {
         await peer.setRemoteDescription(sdp);
         peer._setRemoteSdp(sdp);
@@ -85,12 +84,6 @@ export default class WebRTC {
       const peer = this._getPeerOrNew(sender);
       peer.addIceCandidate(candidate);
     });
-  }
-
-  async _createAnswer(peer) {
-    const sdp = await peer.createAnswer();
-    peer.setLocalDescription(sdp);
-    peer._setLocalSdp(sdp);
   }
 
   _onPeerIceCandidate(peerId, candidate){
