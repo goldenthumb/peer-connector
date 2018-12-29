@@ -62,8 +62,9 @@ export default class WebRTC {
       const {peer, connector} = this._newPeerAndConnector(sender);
       const channel = connector.createDataChannel(this._channelName);
 
-      peer._setDataChannel(channel);
-      peer._attachDataChannel();
+      if(channel){
+        peer.setDataChannel(channel)
+      }
 
       this._attachEvents({ peer, connector });
       await this._createOffer({ peer, connector });

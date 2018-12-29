@@ -30,8 +30,16 @@ export default class Peer {
     this._emitter.emit('stream', stream);
   }
 
-  _setDataChannel(channel) {
-    this._dc = channel;
+  setDataChannel(dc) {
+    this._dc = dc;
+    
+    dc.onmessage = ({ data }) => this._emitter.emit('message', data);
+    dc.onclose = () => this._emitter.emit('close');
+    dc.onopen = () => this._emitter.emit('open');
+    dc.onerror = (error) => {
+      if (!this._emitter.hasListeners(this._emitter, 'error')) throw error;
+      this._emitter.emit('error', error);
+    };
   }
 
   _setLocalSdp(sdp) {
@@ -40,17 +48,5 @@ export default class Peer {
 
   _setRemoteSdp(sdp) {
     this.remoteSdp = sdp;
-  }
-
-  _attachDataChannel() {
-    if (!this._dc) return;
-
-    this._dc.onmessage = ({ data }) => this._emitter.emit('message', data);
-    this._dc.onclose = () => this._emitter.emit('close');
-    this._dc.onopen = () => this._emitter.emit('open');
-    this._dc.onerror = (error) => {
-      if (!this._emitter.hasListeners(this._emitter, 'error')) throw error;
-      this._emitter.emit('error', error);
-    };
   }
 }
