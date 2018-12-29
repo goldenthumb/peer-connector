@@ -35,18 +35,18 @@ export default class WebRTC {
     return this;
   }
 
-  _getPeer(id) {
-    return this._peers.get(id) || this._addPeer(id);
+  _getPeerOrNew(id) {
+    return this._peers.get(id) || this._newPeerAndConnector(id).peer;
   }
 
-  _addPeer(id) {
+  _newPeerAndConnector(id) {
     const peer = new Peer(id);
     const connector = new Connector(new RTCPeerConnection(this._config));
 
     this._peers.set(id, peer);
     this._connectors.set(id, connector);
 
-    return this._peers.get(id);
+    return {peer, connector};
   }
 
   _onMessage() {
@@ -59,8 +59,7 @@ export default class WebRTC {
     });
 
     signal.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
-      const peer = this._addPeer(sender);
-      const connector = this._connectors.get(sender);
+      const {peer, connector} = this._newPeerAndConnector(sender);
       const channel = connector.createDataChannel(this._channelName);
 
       peer._setDataChannel(channel);
@@ -73,7 +72,7 @@ export default class WebRTC {
     });
 
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
-      const peer = this._getPeer(sender);
+      const peer = this._getPeerOrNew(sender);
       const connector = this._connectors.get(sender);
       this._emitter.emit('connect', peer);
 
