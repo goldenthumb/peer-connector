@@ -12,7 +12,7 @@ export default class Peer {
     this._localStream = localStream;
     this._onIceCandidate = onIceCandidate
 
-    this._attachEvents()
+    this._init()
   }
 
   get id(){
@@ -80,7 +80,7 @@ export default class Peer {
     this.remoteSdp = sdp;
   }
 
-  _attachEvents() {
+  _init() {
     const localStream = this.localStream;
     localStream.getTracks().forEach(track => this._pc.addTrack(track, localStream));
 
