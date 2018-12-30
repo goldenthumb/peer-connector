@@ -69,14 +69,12 @@ export default class WebRTC {
     signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
       const peer = this._getPeerOrNew(sender);
       this._emitter.emit('connect', peer);
+      
+      await peer.setRemoteDescription(sdp);
+      peer._setRemoteSdp(sdp);
 
-      if (sdp.type === 'offer') {
-        await peer.setRemoteDescription(sdp);
-        peer._setRemoteSdp(sdp);
+      if (sdp.type === 'offer'){
         signal.sendSdp(peer.id, await peer.createAnswerSdp());
-      } else {
-        await peer.setRemoteDescription(sdp);
-        peer._setRemoteSdp(sdp);
       }
     });
 
