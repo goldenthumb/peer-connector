@@ -29,7 +29,7 @@ export default class Peer {
   }
 
   setRemoteDescription(sdp) {
-    return this._pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    return this._pc.setRemoteDescription(new RTCSessionDescription(this.remoteSdp = sdp));
   }
 
   addIceCandidate(candidate) {
@@ -54,10 +54,6 @@ export default class Peer {
       if (!this._emitter.hasListeners(this._emitter, 'error')) throw error;
       this._emitter.emit('error', error);
     };
-  }
-
-  _setRemoteSdp(sdp) {
-    this.remoteSdp = sdp;
   }
 
   _init() {

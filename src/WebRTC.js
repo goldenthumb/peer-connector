@@ -71,8 +71,7 @@ export default class WebRTC {
       this._emitter.emit('connect', peer);
       
       await peer.setRemoteDescription(sdp);
-      peer._setRemoteSdp(sdp);
-
+      
       if (sdp.type === 'offer'){
         signal.sendSdp(peer.id, await peer.createAnswerSdp());
       }
