@@ -1,5 +1,6 @@
 import EventEmitter from 'event-emitter';
 import randombytes from 'randombytes';
+import Peer from './Peer';
 
 export const MESSAGE = {
   JOIN: '/PEER_CONNECTOR/join',
@@ -9,11 +10,15 @@ export const MESSAGE = {
 };
 
 export default class Signal {
-  constructor(webSocket) {
+  constructor({ webSocket, config, rtc }) {
     this._emitter = new EventEmitter();
     this._ws = webSocket;
-    this._ws.onmessage = this._onMessage.bind(this);
     this._id = randombytes(20).toString('hex');
+    this._channelName = randombytes(20).toString('hex');
+    this._rtc = rtc
+    this._config = config;
+
+    webSocket.onmessage = this._onMessage.bind(this);
   }
 
   on(eventName, listener) {
@@ -62,7 +67,7 @@ export default class Signal {
     return !data.receiver || data.receiver === this._id
   }
   
-  signaling(rtc) {
+  signaling() {
     this.join();
 
     this.on(MESSAGE.JOIN, ({ sender }) => {
@@ -70,26 +75,41 @@ export default class Signal {
     });
 
     this.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
-      const peer = rtc._newPeer(sender);
-      peer.createDataChannel(rtc._channelName);
+      const peer = this._createPeer(sender);
+      peer.createDataChannel(this._channelName);
       this.sendSdp(peer.id, await peer.createOfferSdp());
     });
 
     this.on(MESSAGE.SDP, async ({ sender, sdp }) => {
-      const peer = rtc._getPeerOrNew(sender);
-      peer.on('onIceCandidate', candidate => this.sendCandidate(sender, candidate))
-      rtc._emitter.emit('connect', peer);
-      
+      const peer = this._getPeerOrCreate(sender);      
       await peer.setRemoteDescription(sdp);
-      
+
       if (sdp.type === 'offer'){
         this.sendSdp(peer.id, await peer.createAnswerSdp());
       }
     });
 
     this.on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
-      const peer = rtc._getPeerOrNew(sender);
+      const peer = this._getPeerOrCreate(sender);
       peer.addIceCandidate(candidate);
     });
+  }
+
+  _createPeer(peerId) {
+    const peer = new Peer({
+      id: peerId, 
+      peerConnection: new RTCPeerConnection(this._config), 
+      localStream: this._rtc.stream, 
+    });
+
+    peer.on('onIceCandidate', candidate => this.sendCandidate(peerId, candidate))
+    this._rtc.addNewPeer(peer)
+    
+    return peer
+  }
+
+  _getPeerOrCreate(peerId){
+    const peers = this._rtc.peers
+    return peers.has(peerId) ? peers.get(peerId) : this._createPeer(peerId)
   }
 }

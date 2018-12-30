@@ -1,16 +1,10 @@
 import Emitter from 'event-emitter';
-import randombytes from 'randombytes';
-
-import Peer from './Peer';
-import { MESSAGE } from './Signal';
 
 export default class WebRTC {
-  constructor({ stream, config }) {
+  constructor(stream) {
     this._emitter = new Emitter();
-    this._channelName = randombytes(20).toString('hex');
     this._peers = new Map();
-    this._stream = stream;
-    this._config = config;
+    this._stream = stream
   }
 
   on(eventName, listener) {
@@ -25,18 +19,8 @@ export default class WebRTC {
     return this._peers;
   }
 
-  _getPeerOrNew(id) {
-    return this._peers.get(id) || this._newPeer(id);
-  }
-
-  _newPeer(id) {
-    const peer = new Peer({
-      id, 
-      peerConnection: new RTCPeerConnection(this._config), 
-      localStream: this.stream, 
-    });
-
-    this._peers.set(id, peer);
-    return peer;
+  addNewPeer(peer){
+    this.peers.set(peer.id, peer)
+    peer.on('connect', () => this._emitter.emit('connect', peer))
   }
 }

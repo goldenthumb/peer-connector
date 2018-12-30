@@ -15,11 +15,9 @@ const peerConnector = async ({ servers, mediaType, config = CONFIG }) => {
   }
 
   mediaType = await normalizeMediaType(mediaType);
-  const ws = await connect(servers);
-  const signal = new Signal(ws);
-
-  const rtc =  new WebRTC({ config, stream: await navigator.mediaDevices.getUserMedia(mediaType) });
-  signal.signaling(rtc)
+  const rtc =  new WebRTC(await navigator.mediaDevices.getUserMedia(mediaType));
+  const signal = new Signal({ rtc, config, webSocket: await connect(servers) });
+  signal.signaling()
 
   return rtc
 };
