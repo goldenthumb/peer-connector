@@ -5,13 +5,12 @@ import Peer from './Peer';
 import { MESSAGE } from './Signal';
 
 export default class WebRTC {
-  constructor({ signal, mediaType, config }) {
+  constructor({ signal, stream, config }) {
     this._emitter = new Emitter();
     this._channelName = randombytes(20).toString('hex');
     this._peers = new Map();
-    this._stream = null;
+    this._stream = stream;
     this._signal = signal;
-    this._mediaType = mediaType;
     this._config = config;
 
     this._onPeerIceCandidate = this._onPeerIceCandidate.bind(this)
@@ -27,12 +26,6 @@ export default class WebRTC {
 
   get peers() {
     return this._peers;
-  }
-
-  async _init() {
-    this._stream = await navigator.mediaDevices.getUserMedia(this._mediaType);
-    this._onMessage();
-    return this;
   }
 
   _getPeerOrNew(id) {
@@ -51,7 +44,7 @@ export default class WebRTC {
     return peer;
   }
 
-  _onMessage() {
+  signaling() {
     const signal = this._signal;
 
     signal.join();
