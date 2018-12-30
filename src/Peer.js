@@ -6,9 +6,9 @@ export default class Peer {
     this._pc = peerConnection;
     this._dc = null;
     this._emitter = new Emitter();
-    this.localSdp = null;
-    this.remoteSdp = null;
-    this.remoteStream = null;
+    this._localSdp = null;
+    this._remoteSdp = null;
+    this._remoteStream = null;
     this._localStream = localStream;
     this._onIceCandidate = onIceCandidate
 
@@ -23,13 +23,25 @@ export default class Peer {
     return this._localStream
   }
 
+  get remoteStream(){
+    return this._remoteStream
+  }
+
+  get localSdp(){
+    return this._localSdp
+  }
+
+  get remoteSdp(){
+    return this._remoteSdp
+  }
+
   createDataChannel(channelName) {
     if (!this._pc.createDataChannel) return;
     this._setDataChannel(this._pc.createDataChannel(channelName))
   }
 
   setRemoteDescription(sdp) {
-    return this._pc.setRemoteDescription(new RTCSessionDescription(this.remoteSdp = sdp));
+    return this._pc.setRemoteDescription(new RTCSessionDescription(this._remoteSdp = sdp));
   }
 
   addIceCandidate(candidate) {
@@ -65,20 +77,20 @@ export default class Peer {
     };
 
     this._pc.ontrack = ({ streams }) => {
-      if (!this.remoteStream) this._emitter.emit('stream', this.remoteStream = streams[0]);
+      if (!this._remoteStream) this._emitter.emit('stream', this._remoteStream = streams[0]);
     };
 
     this._pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
   }
 
   async createOfferSdp() {
-    const sdp = this.localSdp = await this._pc.createOffer();
+    const sdp = this._localSdp = await this._pc.createOffer();
     this._pc.setLocalDescription(sdp);
     return sdp
   }
 
   async createAnswerSdp(){
-    const sdp = this.localSdp = await this._pc.createAnswer();
+    const sdp = this._localSdp = await this._pc.createAnswer();
     this._pc.setLocalDescription(sdp);
     return sdp
   }
