@@ -2,7 +2,7 @@ import EventEmitter from 'event-emitter';
 import randombytes from 'randombytes';
 import Peer from './Peer';
 
-export const MESSAGE = {
+const MESSAGE = {
   JOIN: '/PEER_CONNECTOR/join',
   REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
   SDP: '/PEER_CONNECTOR/sdp',
@@ -14,53 +14,40 @@ export default class Signal {
     this._emitter = new EventEmitter();
     this._ws = webSocket;
     this._id = randombytes(20).toString('hex');
-    this._channelName = randombytes(20).toString('hex');
     this._rtc = rtc
     this._config = config;
 
     webSocket.onmessage = this._onMessage.bind(this);
   }
 
-  on(eventName, listener) {
+  _on(eventName, listener) {
     this._emitter.on(eventName, listener);
   }
 
   join() {
-    this._send(MESSAGE.JOIN, { sender: this._id });
+    this._send(MESSAGE.JOIN);
   }
 
   requestPeer(receiver) {
-    this._send(MESSAGE.REQUEST_CONNECT, {
-      receiver,
-      sender: this._id
-    });
+    this._send(MESSAGE.REQUEST_CONNECT, { receiver, });
   }
 
   sendSdp(receiver, sdp) {
-    this._send(MESSAGE.SDP, {
-      receiver,
-      sender: this._id,
-      sdp
-    });
+    this._send(MESSAGE.SDP, { receiver, sdp });
   }
 
   sendCandidate(receiver, candidate) {
-    this._send(MESSAGE.CANDIDATE, {
-      receiver,
-      sender: this._id,
-      candidate
-    });
+    this._send(MESSAGE.CANDIDATE, { receiver, candidate });
   }
 
   _onMessage(message) {
     if (!message) return;
     const { event, data } = JSON.parse(message.data);
-
     if (this._equalId(data)) this._emitter.emit(event, data);
   }
 
-  _send(event, data) {
-    this._ws.send(JSON.stringify({ event, data }));
+  _send(event, data = {}) {
+    this._ws.send(JSON.stringify({ event, data, sender: this._id }));
   }
 
   _equalId(data) {
@@ -70,17 +57,17 @@ export default class Signal {
   signaling() {
     this.join();
 
-    this.on(MESSAGE.JOIN, ({ sender }) => {
+    this._on(MESSAGE.JOIN, ({ sender }) => {
       this.requestPeer(sender);
     });
 
-    this.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
+    this._on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
       const peer = this._createPeer(sender);
-      peer.createDataChannel(this._channelName);
+      peer.createDataChannel(this._id);
       this.sendSdp(peer.id, await peer.createOfferSdp());
     });
 
-    this.on(MESSAGE.SDP, async ({ sender, sdp }) => {
+    this._on(MESSAGE.SDP, async ({ sender, sdp }) => {
       const peer = this._getPeerOrCreate(sender);      
       await peer.setRemoteDescription(sdp);
 
@@ -89,7 +76,7 @@ export default class Signal {
       }
     });
 
-    this.on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
+    this._on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
       const peer = this._getPeerOrCreate(sender);
       peer.addIceCandidate(candidate);
     });
