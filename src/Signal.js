@@ -61,4 +61,35 @@ export default class Signal {
   _equalId(data) {
     return !data.receiver || data.receiver === this._id
   }
+  
+  signaling(rtc) {
+    this.join();
+
+    this.on(MESSAGE.JOIN, ({ sender }) => {
+      this.requestPeer(sender);
+    });
+
+    this.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
+      const peer = rtc._newPeer(sender);
+      peer.createDataChannel(rtc._channelName);
+      this.sendSdp(peer.id, await peer.createOfferSdp());
+    });
+
+    this.on(MESSAGE.SDP, async ({ sender, sdp }) => {
+      const peer = rtc._getPeerOrNew(sender);
+      peer.on('onIceCandidate', candidate => this.sendCandidate(sender, candidate))
+      rtc._emitter.emit('connect', peer);
+      
+      await peer.setRemoteDescription(sdp);
+      
+      if (sdp.type === 'offer'){
+        this.sendSdp(peer.id, await peer.createAnswerSdp());
+      }
+    });
+
+    this.on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
+      const peer = rtc._getPeerOrNew(sender);
+      peer.addIceCandidate(candidate);
+    });
+  }
 }

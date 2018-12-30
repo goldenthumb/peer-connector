@@ -1,7 +1,7 @@
 import Emitter from 'event-emitter';
 
 export default class Peer {
-  constructor({id, peerConnection, localStream, onIceCandidate}) {
+  constructor({id, peerConnection, localStream}) {
     this._id = id;
     this._pc = peerConnection;
     this._dc = null;
@@ -10,8 +10,7 @@ export default class Peer {
     this._remoteSdp = null;
     this._remoteStream = null;
     this._localStream = localStream;
-    this._onIceCandidate = onIceCandidate
-
+  
     this._init()
   }
 
@@ -73,7 +72,7 @@ export default class Peer {
     localStream.getTracks().forEach(track => this._pc.addTrack(track, localStream));
 
     this._pc.onicecandidate = ({ candidate }) => {
-      if (candidate) this._onIceCandidate(this.id, candidate)
+      if (candidate) this._emitter.emit('onIceCandidate', candidate)
     };
 
     this._pc.ontrack = ({ streams }) => {
