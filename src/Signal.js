@@ -24,22 +24,6 @@ export default class Signal {
     this._emitter.on(eventName, listener);
   }
 
-  join() {
-    this._send(MESSAGE.JOIN);
-  }
-
-  requestPeer(receiver) {
-    this._send(MESSAGE.REQUEST_CONNECT, { receiver, });
-  }
-
-  sendSdp(receiver, sdp) {
-    this._send(MESSAGE.SDP, { receiver, sdp });
-  }
-
-  sendCandidate(receiver, candidate) {
-    this._send(MESSAGE.CANDIDATE, { receiver, candidate });
-  }
-
   _onMessage(message) {
     if (!message) return;
     const { event, data } = JSON.parse(message.data);
@@ -55,16 +39,16 @@ export default class Signal {
   }
   
   signaling() {
-    this.join();
+    this._send(MESSAGE.JOIN);
 
     this._on(MESSAGE.JOIN, ({ sender }) => {
-      this.requestPeer(sender);
+      this._send(MESSAGE.REQUEST_CONNECT, { receiver: sender });
     });
 
     this._on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
       const peer = this._createPeer(sender);
       peer.createDataChannel(this._id);
-      this.sendSdp(peer.id, await peer.createOfferSdp());
+      this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
     });
 
     this._on(MESSAGE.SDP, async ({ sender, sdp }) => {
@@ -72,7 +56,7 @@ export default class Signal {
       await peer.setRemoteDescription(sdp);
 
       if (sdp.type === 'offer'){
-        this.sendSdp(peer.id, await peer.createAnswerSdp());
+        this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createAnswerSdp() });
       }
     });
 
@@ -89,7 +73,7 @@ export default class Signal {
       localStream: this._rtc.stream, 
     });
 
-    peer.on('onIceCandidate', candidate => this.sendCandidate(peerId, candidate))
+    peer.on('onIceCandidate', candidate => this._send(MESSAGE.CANDIDATE, { receiver: peerId, candidate }));
     this._rtc.addNewPeer(peer)
     
     return peer
