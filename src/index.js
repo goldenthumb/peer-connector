@@ -1,5 +1,6 @@
 import connect from './websocket';
 import requestScreen from './requestScreen';
+import getBrowserRTC from 'get-browser-rtc'
 
 import Signal from './Signal';
 import WebRTC from './WebRTC';
@@ -9,13 +10,16 @@ const CONFIG = {
 };
 
 const peerConnector = async ({ servers, mediaType, config = CONFIG }) => {
+  if (!getBrowserRTC()) {
+    throw new Error('Not support getUserMedia API');
+  }
+
   mediaType = await normalizeMediaType(mediaType);
+  const rtc =  new WebRTC(await navigator.mediaDevices.getUserMedia(mediaType));
+  const signal = new Signal({ rtc, config, webSocket: await connect(servers) });
+  signal.signaling()
 
-  const ws = await connect(servers);
-  const signal = new Signal(ws);
-  const rtc = new WebRTC({ signal, mediaType, config });
-
-  return rtc._init();
+  return rtc
 };
 
 const normalizeMediaType = async (mediaType) => {
