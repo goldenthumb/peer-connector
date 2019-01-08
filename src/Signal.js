@@ -31,7 +31,7 @@ export default class Signal {
   }
 
   _send(event, data = {}) {
-    this._ws.send(JSON.stringify({ event, data, sender: this._id }));
+    this._ws.send(JSON.stringify({ event, data: { ...data, sender: this._id }}));
   }
 
   _equalId(data) {
@@ -52,7 +52,10 @@ export default class Signal {
     });
 
     this._on(MESSAGE.SDP, async ({ sender, sdp }) => {
-      const peer = this._getPeerOrCreate(sender);      
+      const peer = this._getPeerOrCreate(sender);
+
+      this._rtc._emitter.emit('connect', peer);
+
       await peer.setRemoteDescription(sdp);
 
       if (sdp.type === 'offer'){
@@ -73,7 +76,7 @@ export default class Signal {
       localStream: this._rtc.stream, 
     });
 
-    peer.on('onIceCandidate', candidate => this._send(MESSAGE.CANDIDATE, { receiver: peerId, candidate }));
+    peer.on('onIceCandidate', candidate => this._send(MESSAGE.CANDIDATE, { receiver: peer.id, candidate }));
     this._rtc.addNewPeer(peer)
     
     return peer
