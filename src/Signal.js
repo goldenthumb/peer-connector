@@ -14,7 +14,7 @@ export default class Signal {
     this._emitter = new EventEmitter();
     this._ws = webSocket;
     this._id = randombytes(20).toString('hex');
-    this._rtc = rtc
+    this._rtc = rtc;
     this._config = config;
 
     webSocket.onmessage = this._onMessage.bind(this);
@@ -31,13 +31,13 @@ export default class Signal {
   }
 
   _send(event, data = {}) {
-    this._ws.send(JSON.stringify({ event, data: { ...data, sender: this._id }}));
+    this._ws.send(JSON.stringify({ event, data: { ...data, sender: this._id } }));
   }
 
   _equalId(data) {
-    return !data.receiver || data.receiver === this._id
+    return !data.receiver || data.receiver === this._id;
   }
-  
+
   signaling() {
     this._send(MESSAGE.JOIN);
 
@@ -58,7 +58,7 @@ export default class Signal {
 
       await peer.setRemoteDescription(sdp);
 
-      if (sdp.type === 'offer'){
+      if (sdp.type === 'offer') {
         this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createAnswerSdp() });
       }
     });
@@ -71,19 +71,19 @@ export default class Signal {
 
   _createPeer(peerId) {
     const peer = new Peer({
-      id: peerId, 
-      peerConnection: new RTCPeerConnection(this._config), 
-      localStream: this._rtc.stream, 
+      id: peerId,
+      peerConnection: new RTCPeerConnection(this._config),
+      localStream: this._rtc.stream,
     });
 
     peer.on('onIceCandidate', candidate => this._send(MESSAGE.CANDIDATE, { receiver: peer.id, candidate }));
-    this._rtc.addNewPeer(peer)
-    
-    return peer
+    this._rtc.addNewPeer(peer);
+
+    return peer;
   }
 
-  _getPeerOrCreate(peerId){
-    const peers = this._rtc.peers
-    return peers.has(peerId) ? peers.get(peerId) : this._createPeer(peerId)
+  _getPeerOrCreate(peerId) {
+    const peers = this._rtc.peers;
+    return peers.has(peerId) ? peers.get(peerId) : this._createPeer(peerId);
   }
 }

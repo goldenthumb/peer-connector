@@ -1,7 +1,7 @@
 import Emitter from 'event-emitter';
 
 export default class Peer {
-  constructor({id, peerConnection, localStream}) {
+  constructor({ id, peerConnection, localStream }) {
     this._id = id;
     this._pc = peerConnection;
     this._dc = null;
@@ -14,29 +14,29 @@ export default class Peer {
     this._init()
   }
 
-  get id(){
-    return this._id
+  get id() {
+    return this._id;
   }
 
-  get localStream(){
-    return this._localStream
+  get localStream() {
+    return this._localStream;
   }
 
-  get remoteStream(){
-    return this._remoteStream
+  get remoteStream() {
+    return this._remoteStream;
   }
 
-  get localSdp(){
-    return this._localSdp
+  get localSdp() {
+    return this._localSdp;
   }
 
-  get remoteSdp(){
-    return this._remoteSdp
+  get remoteSdp() {
+    return this._remoteSdp;
   }
 
   createDataChannel(channelName) {
     if (!this._pc.createDataChannel) return;
-    this._setDataChannel(this._pc.createDataChannel(channelName))
+    this._setDataChannel(this._pc.createDataChannel(channelName));
   }
 
   setRemoteDescription(sdp) {
@@ -72,7 +72,7 @@ export default class Peer {
     localStream.getTracks().forEach(track => this._pc.addTrack(track, localStream));
 
     this._pc.onicecandidate = ({ candidate }) => {
-      if (candidate) this._emitter.emit('onIceCandidate', candidate)
+      if (candidate) this._emitter.emit('onIceCandidate', candidate);
     };
 
     this._pc.ontrack = ({ streams }) => {
@@ -83,14 +83,14 @@ export default class Peer {
   }
 
   async createOfferSdp() {
-    const sdp = this._localSdp = await this._pc.createOffer();
-    this._pc.setLocalDescription(sdp);
-    return sdp
+    this._localSdp = await this._pc.createOffer();
+    this._pc.setLocalDescription(this._localSdp);
+    return this._localSdp;
   }
 
-  async createAnswerSdp(){
-    const sdp = this._localSdp = await this._pc.createAnswer();
-    this._pc.setLocalDescription(sdp);
-    return sdp
+  async createAnswerSdp() {
+    this._localSdp = await this._pc.createAnswer();
+    this._pc.setLocalDescription(this._localSdp);
+    return this._localSdp;
   }
 }

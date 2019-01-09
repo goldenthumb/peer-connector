@@ -4,7 +4,7 @@ export default class WebRTC {
   constructor(stream) {
     this._emitter = new Emitter();
     this._peers = new Map();
-    this._stream = stream
+    this._stream = stream;
   }
 
   on(eventName, listener) {
@@ -19,7 +19,7 @@ export default class WebRTC {
     return this._peers;
   }
 
-  addNewPeer(peer){
-    this.peers.set(peer.id, peer)
+  addNewPeer(peer) {
+    this.peers.set(peer.id, peer);
   }
 }

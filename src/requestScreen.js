@@ -1,4 +1,5 @@
 import { detect } from 'detect-browser';
+
 const userAgent = detect();
 
 const EXTENSION_ID = 'mopiaiibclcaiolndiidmkpejmcpjmcf';
@@ -13,7 +14,7 @@ export default async () => {
         window.location.href = EXTENSION_URL;
       }
 
-      return  {
+      return {
         mandatory: {
           chromeMediaSource: 'desktop',
           chromeMediaSourceId: await getStreamId(),
@@ -30,11 +31,11 @@ const getStreamId = () => new Promise(resolve => {
   window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
   window.addEventListener('message', function listener({ data: { type, streamId } }) {
     window.removeEventListener('message', listener);
-    resolve(type === 'SCREEN_SHARE' ? streamId : false)
+    resolve(type === 'SCREEN_SHARE' ? streamId : false);
   });
 });
 
-const isInstalledExtension = () => new Promise((resolve) => {
+const isInstalledExtension = () => new Promise(resolve => {
   const img = document.createElement('img');
   img.src = `chrome-extension://${EXTENSION_ID}/icon.png`;
   img.onload = () => resolve(true);
