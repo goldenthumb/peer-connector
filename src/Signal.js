@@ -53,9 +53,6 @@ export default class Signal {
 
     this._on(MESSAGE.SDP, async ({ sender, sdp }) => {
       const peer = this._getPeerOrCreate(sender);
-
-      this._rtc._emitter.emit('connect', peer);
-
       await peer.setRemoteDescription(sdp);
 
       if (sdp.type === 'offer') {

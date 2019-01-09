@@ -1,12 +1,11 @@
 import { detect } from 'detect-browser';
 import Emitter from 'event-emitter';
 import randombytes from 'randombytes';
-import 'webrtc-adapter';
 import getBrowserRTC from 'get-browser-rtc';
 
 const connect = ({ host, port, username, password, ssl = false }) => {
   return new Promise((resolve, reject) => {
-    const accessAuth = username && password ? `${username}:${password}@`: '';
+    const accessAuth = username && password ? `${username}:${password}@` : '';
     const webSocket = new WebSocket(`${ssl ? 'wss' : 'ws'}://${accessAuth}${host}:${port}`);
 
     webSocket.onopen = () => resolve(webSocket);
@@ -30,136 +29,88 @@ const EXTENSION_ID = 'mopiaiibclcaiolndiidmkpejmcpjmcf';
 const EXTENSION_URL = `https://chrome.google.com/webstore/detail/screen-sharing-extension/${EXTENSION_ID}`;
 
 var requestScreen = async () => {
-  if (!isSupport()) {
-    throw new Error('not support browser');
-  }
-
-  if (userAgent.name === 'firefox') {
-    return { mediaSource: 'screen' };
-  }
-
-  if (userAgent.name === 'chrome') {
-    return {
-      mandatory: {
-        chromeMediaSource: 'desktop',
-        chromeMediaSourceId: await getStreamId(),
-        maxWidth: window.screen.width,
-        maxHeight: window.screen.height
+  switch (userAgent.name) {
+    case 'firefox':
+      return { mediaSource: 'screen' };
+    case 'chrome':
+      if (!await isInstalledExtension()) {
+        window.location.href = EXTENSION_URL;
       }
-    };
+
+      return {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: await getStreamId(),
+          maxWidth: window.screen.width,
+          maxHeight: window.screen.height
+        }
+      };
+    default:
+      throw new Error('not support browser');
   }
 };
 
-const isSupport = () => {
-  const browser = userAgent.name;
-  return browser === 'chrome' || browser === 'firefox';
-};
-
-const getStreamId = async () => {
-  if (!await isInstalledExtension()) {
-    window.location.href = EXTENSION_URL;
-  }
-
+const getStreamId = () => new Promise(resolve => {
   window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
-
-  return await new Promise(resolve => {
-    window.addEventListener('message', function listener({ data: { type, streamId } }) {
-      if (type === 'SCREEN_SHARE') {
-        window.removeEventListener('message', listener);
-        resolve(streamId);
-      }
-
-      if (type === 'SCREEN_CANCEL') {
-        window.removeEventListener('message', listener);
-        resolve(false);
-      }
-    });
+  window.addEventListener('message', function listener({ data: { type, streamId } }) {
+    window.removeEventListener('message', listener);
+    resolve(type === 'SCREEN_SHARE' ? streamId : false);
   });
-};
+});
 
-const isInstalledExtension = async () => {
+const isInstalledExtension = () => new Promise(resolve => {
   const img = document.createElement('img');
   img.src = `chrome-extension://${EXTENSION_ID}/icon.png`;
-
-  return await new Promise((resolve) => {
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-  });
-};
-
-const MESSAGE = {
-  JOIN: '/PEER_CONNECTOR/join',
-  REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
-  SDP: '/PEER_CONNECTOR/sdp',
-  CANDIDATE: '/PEER_CONNECTOR/candidate'
-};
-
-class Signal {
-  constructor(webSocket) {
-    this._emitter = new Emitter();
-    this._ws = webSocket;
-    this._ws.onmessage = this._onMessage.bind(this);
-    this._id = randombytes(20).toString('hex');
-
-    this._onMessage();
-  }
-
-  on(eventName, listener) {
-    this._emitter.on(eventName, listener);
-  }
-
-  join() {
-    this._send(MESSAGE.JOIN, { sender: this._id });
-  }
-
-  requestPeer(receiver) {
-    this._send(MESSAGE.REQUEST_CONNECT, {
-      receiver,
-      sender: this._id
-    });
-  }
-
-  sendSdp(receiver, sdp) {
-    this._send(MESSAGE.SDP, {
-      receiver,
-      sender: this._id,
-      sdp
-    });
-  }
-
-  sendCandidate(receiver, candidate) {
-    this._send(MESSAGE.CANDIDATE, {
-      receiver,
-      sender: this._id,
-      candidate
-    });
-  }
-
-  _onMessage(message) {
-    if (!message) return;
-    const { event, data } = JSON.parse(message.data);
-
-    if (this._equalId(data)) this._emitter.emit(event, data);
-  }
-
-  _send(event, data) {
-    this._ws.send(JSON.stringify({ event, data }));
-  }
-
-  _equalId(data) {
-    return !data.receiver || data.receiver === this._id
-  }
-}
+  img.onload = () => resolve(true);
+  img.onerror = () => resolve(false);
+});
 
 class Peer {
-  constructor(id) {
-    this.id = id;
+  constructor({ id, peerConnection, localStream }) {
+    this._id = id;
+    this._pc = peerConnection;
     this._dc = null;
     this._emitter = new Emitter();
-    this.localSdp = null;
-    this.remoteSdp = null;
-    this.localStream = null;
-    this.remoteStream = null;
+    this._localSdp = null;
+    this._remoteSdp = null;
+    this._remoteStream = null;
+    this._localStream = localStream;
+    this._isConnected = false;
+
+    this._init();
+  }
+
+  get id() {
+    return this._id;
+  }
+
+  get localStream() {
+    return this._localStream;
+  }
+
+  get remoteStream() {
+    return this._remoteStream;
+  }
+
+  get localSdp() {
+    return this._localSdp;
+  }
+
+  get remoteSdp() {
+    return this._remoteSdp;
+  }
+
+  createDataChannel(channelName) {
+    if (!this._pc.createDataChannel) return;
+    this._setDataChannel(this._pc.createDataChannel(channelName));
+  }
+
+  setRemoteDescription(sdp) {
+    return this._pc.setRemoteDescription(new RTCSessionDescription(this._remoteSdp = sdp));
+  }
+
+  addIceCandidate(candidate) {
+    return this._pc.addIceCandidate(candidate);
   }
 
   on(eventName, listener) {
@@ -170,114 +121,138 @@ class Peer {
     this._dc && this._dc.send(data);
   }
 
-  _setLocalStream(stream) {
-    this.localStream = stream;
-  }
+  _setDataChannel(dc) {
+    this._dc = dc;
 
-  _setRemoteStream(stream) {
-    if (this.remoteStream) return;
-
-    this.remoteStream = stream;
-    this._emitter.emit('stream', stream);
-  }
-
-  _setDataChannel(channel) {
-    this._dc = channel;
-  }
-
-  _setLocalSdp(sdp) {
-    this.localSdp = sdp;
-  }
-
-  _setRemoteSdp(sdp) {
-    this.remoteSdp = sdp;
-  }
-
-  _attachDataChannel() {
-    if (!this._dc) return;
-
-    this._dc.onmessage = ({ data }) => this._emitter.emit('message', data);
-    this._dc.onclose = () => this._emitter.emit('close');
-    this._dc.onopen = () => this._emitter.emit('open');
-    this._dc.onerror = (error) => {
+    dc.onmessage = ({ data }) => this._emitter.emit('message', data);
+    dc.onclose = () => this._emitter.emit('close');
+    dc.onopen = () => this._emitter.emit('open');
+    dc.onerror = (error) => {
       if (!this._emitter.hasListeners(this._emitter, 'error')) throw error;
       this._emitter.emit('error', error);
     };
   }
+
+  _init() {
+    const localStream = this.localStream;
+    localStream.getTracks().forEach(track => this._pc.addTrack(track, localStream));
+
+    this._pc.onicecandidate = ({ candidate }) => {
+      if (candidate) this._emitter.emit('onIceCandidate', candidate);
+    };
+
+    this._pc.ontrack = ({ streams }) => {
+      if (!this._remoteStream) this._emitter.emit('stream', this._remoteStream = streams[0]);
+    };
+
+    this._pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
+
+    this._pc.oniceconnectionstatechange = () => {
+      if (!this._isConnected && this._pc.iceConnectionState === 'connected') this._emitter.emit('connect');
+    };
+  }
+
+  async createOfferSdp() {
+    this._localSdp = await this._pc.createOffer();
+    this._pc.setLocalDescription(this._localSdp);
+    return this._localSdp;
+  }
+
+  async createAnswerSdp() {
+    this._localSdp = await this._pc.createAnswer();
+    this._pc.setLocalDescription(this._localSdp);
+    return this._localSdp;
+  }
 }
 
-class Connector {
-  constructor(peer) {
-    this._peer = peer;
-    this.onIceCandidate = null;
-    this.onTrack = null;
-    this.onDataChannel = null;
+const MESSAGE = {
+  JOIN: '/PEER_CONNECTOR/join',
+  REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
+  SDP: '/PEER_CONNECTOR/sdp',
+  CANDIDATE: '/PEER_CONNECTOR/candidate'
+};
+
+class Signal {
+  constructor({ webSocket, config, rtc }) {
+    this._emitter = new Emitter();
+    this._ws = webSocket;
+    this._id = randombytes(20).toString('hex');
+    this._rtc = rtc;
+    this._config = config;
+
+    webSocket.onmessage = this._onMessage.bind(this);
   }
 
-  set onIceCandidate(func) {
-    this._peer.onicecandidate = func;
+  _on(eventName, listener) {
+    this._emitter.on(eventName, listener);
   }
 
-  set onTrack(func) {
-    this._peer.ontrack = func;
+  _onMessage(message) {
+    if (!message) return;
+    const { event, data } = JSON.parse(message.data);
+    if (this._equalId(data)) this._emitter.emit(event, data);
   }
 
-  set onDataChannel(func) {
-    this._peer.ondatachannel = func;
+  _send(event, data = {}) {
+    this._ws.send(JSON.stringify({ event, data: { ...data, sender: this._id } }));
   }
 
-  createOffer() {
-    return this._peer.createOffer();
+  _equalId(data) {
+    return !data.receiver || data.receiver === this._id;
   }
 
-  createAnswer() {
-    return this._peer.createAnswer();
-  }
+  signaling() {
+    this._send(MESSAGE.JOIN);
 
-  createDataChannel(channelName) {
-    if (!this._peer.createDataChannel) return;
-    return this._peer.createDataChannel(channelName);
-  }
+    this._on(MESSAGE.JOIN, ({ sender }) => {
+      this._send(MESSAGE.REQUEST_CONNECT, { receiver: sender });
+    });
 
-  addTrack(stream) {
-    if (!stream) return;
+    this._on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
+      const peer = this._createPeer(sender);
+      peer.createDataChannel(this._id);
+      this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
+    });
 
-    stream.getTracks().forEach(track => {
-      this._peer.addTrack(track, stream);
+    this._on(MESSAGE.SDP, async ({ sender, sdp }) => {
+      const peer = this._getPeerOrCreate(sender);
+      await peer.setRemoteDescription(sdp);
+
+      if (sdp.type === 'offer') {
+        this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createAnswerSdp() });
+      }
+    });
+
+    this._on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
+      const peer = this._getPeerOrCreate(sender);
+      peer.addIceCandidate(candidate);
     });
   }
 
-  setLocalDescription(sdp) {
-    return this._peer.setLocalDescription(sdp);
+  _createPeer(peerId) {
+    const peer = new Peer({
+      id: peerId,
+      peerConnection: new RTCPeerConnection(this._config),
+      localStream: this._rtc.stream,
+    });
+
+    peer.on('onIceCandidate', candidate => this._send(MESSAGE.CANDIDATE, { receiver: peer.id, candidate }));
+    this._rtc.addNewPeer(peer);
+
+    return peer;
   }
 
-  setRemoteDescription(sdp) {
-    return this._peer.setRemoteDescription(new RTCSessionDescription(sdp));
-  }
-
-  addIceCandidate(candidate) {
-    return this._peer.addIceCandidate(candidate);
+  _getPeerOrCreate(peerId) {
+    const peers = this._rtc.peers;
+    return peers.has(peerId) ? peers.get(peerId) : this._createPeer(peerId);
   }
 }
 
 class WebRTC {
-  constructor({ signal, mediaType, config }) {
-    if (!WebRTC.support()) {
-      throw new Error('Not support getUserMedia API');
-    }
-
+  constructor(stream) {
     this._emitter = new Emitter();
-    this._channelName = randombytes(20).toString('hex');
     this._peers = new Map();
-    this._connectors = new Map();
-    this._stream = null;
-    this._signal = signal;
-    this._options = mediaType;
-    this._config = config;
-  }
-
-  static support() {
-    return !!getBrowserRTC();
+    this._stream = stream;
   }
 
   on(eventName, listener) {
@@ -292,102 +267,9 @@ class WebRTC {
     return this._peers;
   }
 
-  async _init() {
-    this._stream = await navigator.mediaDevices.getUserMedia(this._options);
-    this._onMessage();
-    return this;
-  }
-
-  _getPeer(id) {
-    return this._peers.get(id) || this._addPeer(id);
-  }
-
-  _addPeer(id) {
-    const peer = new Peer(id);
-    const connector = new Connector(new RTCPeerConnection(this._config));
-
-    this._peers.set(id, peer);
-    this._connectors.set(id, connector);
-
-    return this._peers.get(id);
-  }
-
-  _onMessage() {
-    const signal = this._signal;
-
-    signal.join();
-
-    signal.on(MESSAGE.JOIN, ({ sender }) => {
-      signal.requestPeer(sender);
-    });
-
-    signal.on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
-      const peer = this._addPeer(sender);
-      const connector = this._connectors.get(sender);
-      const channel = connector.createDataChannel(this._channelName);
-
-      peer._setDataChannel(channel);
-      peer._attachDataChannel();
-
-      this._attachEvents({ peer, connector });
-      await this._createOffer({ peer, connector });
-
-      signal.sendSdp(peer.id, peer.localSdp);
-    });
-
-    signal.on(MESSAGE.SDP, async ({ sender, sdp }) => {
-      const peer = this._getPeer(sender);
-      const connector = this._connectors.get(sender);
-      this._emitter.emit('connect', peer);
-
-      if (sdp.type === 'offer') {
-        this._attachEvents({ peer, connector });
-
-        connector.onDataChannel = ({ channel }) => {
-          peer._setDataChannel(channel);
-          peer._attachDataChannel();
-        };
-
-        await connector.setRemoteDescription(sdp);
-        await this._createAnswer({ peer, connector });
-        peer._setRemoteSdp(sdp);
-        signal.sendSdp(peer.id, peer.localSdp);
-      } else {
-        await connector.setRemoteDescription(sdp);
-        peer._setRemoteSdp(sdp);
-      }
-    });
-
-    signal.on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
-      const connector = this._connectors.get(sender);
-      connector.addIceCandidate(candidate);
-    });
-  }
-
-  async _createOffer({ peer, connector }) {
-    const sdp = await connector.createOffer();
-    connector.setLocalDescription(sdp);
-    peer._setLocalSdp(sdp);
-  }
-
-  async _createAnswer({ peer, connector }) {
-    const sdp = await connector.createAnswer();
-    connector.setLocalDescription(sdp);
-    peer._setLocalSdp(sdp);
-  }
-
-  _attachEvents({ peer, connector }) {
-    peer._setLocalStream(this._stream);
-    connector.addTrack(this._stream);
-
-    connector.onIceCandidate = ({ candidate }) => {
-      if (!candidate) return;
-      this._signal.sendCandidate(peer.id, candidate);
-    };
-
-    connector.onTrack = ({ streams }) => {
-      peer._setRemoteStream(streams[0]);
-    };
+  addNewPeer(peer) {
+    this.peers.set(peer.id, peer);
+    peer.on('connect', () => this._emitter.emit('connect', peer));
   }
 }
 
@@ -396,13 +278,16 @@ const CONFIG = {
 };
 
 const peerConnector = async ({ servers, mediaType, config = CONFIG }) => {
+  if (!getBrowserRTC()) {
+    throw new Error('Not support getUserMedia API');
+  }
+
   mediaType = await normalizeMediaType(mediaType);
+  const rtc = new WebRTC(await navigator.mediaDevices.getUserMedia(mediaType));
+  const signal = new Signal({ rtc, config, webSocket: await connect$1(servers) });
+  signal.signaling();
 
-  const ws = await connect$1(servers);
-  const signal = new Signal(ws);
-  const rtc = new WebRTC({ signal, mediaType, config });
-
-  return rtc._init();
+  return rtc
 };
 
 const normalizeMediaType = async (mediaType) => {

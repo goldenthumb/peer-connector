@@ -23,13 +23,11 @@ $peerConnect.addEventListener('click', async () => {
       console.log('peer connected', peer);
       console.log('peers info', pc.peers);
 
-      peer.on('stream', (stream) => {
-        const $remoteVideo = createEl('video');
-        $videoGroup.appendChild($remoteVideo);
-        $remoteVideo.style.width = '33%';
-        $remoteVideo.autoplay = true;
-        $remoteVideo.srcObject = stream;
-      });
+      const $remoteVideo = createEl('video');
+      $remoteVideo.style.width = '33%';
+      $remoteVideo.autoplay = true;
+      $remoteVideo.srcObject = peer.remoteStream;
+      $videoGroup.appendChild($remoteVideo);
 
       peer.on('open', () => {
         console.log('data channel open');

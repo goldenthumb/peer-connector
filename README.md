@@ -57,7 +57,8 @@ var peerConnector = require('peer-connector');
 
     pc.on('connect', (peer) => {
       // peer is generated each time WebRTC is connected.
-      console.log('peers info', pc.peers);
+      console.log('peers', pc.peers);
+      console.log('peer', peer);
 
       // peer
       // {
@@ -69,10 +70,6 @@ var peerConnector = require('peer-connector');
       //   on => event listener(open, close, message...)
       //   send => send data by data channel
       // }
-
-      peer.on('stream', (stream) => {
-        console.log(stream); // remote stream;
-      });
 
       peer.on('open', () => {
         console.log('data channel open');

@@ -10,6 +10,7 @@ export default class Peer {
     this._remoteSdp = null;
     this._remoteStream = null;
     this._localStream = localStream;
+    this._isConnected = false;
 
     this._init()
   }
@@ -80,6 +81,10 @@ export default class Peer {
     };
 
     this._pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
+
+    this._pc.oniceconnectionstatechange = () => {
+      if (!this._isConnected && this._pc.iceConnectionState === 'connected') this._emitter.emit('connect');
+    }
   }
 
   async createOfferSdp() {

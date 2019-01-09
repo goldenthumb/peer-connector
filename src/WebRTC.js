@@ -21,5 +21,6 @@ export default class WebRTC {
 
   addNewPeer(peer) {
     this.peers.set(peer.id, peer);
+    peer.on('connect', () => this._emitter.emit('connect', peer));
   }
 }
