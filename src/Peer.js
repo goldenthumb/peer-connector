@@ -12,7 +12,7 @@ export default class Peer {
     this._localStream = localStream;
     this._isConnected = false;
 
-    this._init()
+    this._init();
   }
 
   get id() {

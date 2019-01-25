@@ -19,7 +19,7 @@ const peerConnector = async ({ servers, mediaType, config = CONFIG }) => {
   const signal = new Signal({ rtc, config, webSocket: await connect(servers) });
   signal.signaling();
 
-  return rtc
+  return rtc;
 };
 
 const normalizeMediaType = async (mediaType) => {

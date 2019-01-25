@@ -8,7 +8,7 @@ const connect = ({ host, port, username, password, ssl = false }) => {
   });
 };
 
-export default async (servers) => {
+export default async servers => {
   for (const server of servers) {
     try {
       return await connect(server);

@@ -1,6 +1,6 @@
 const server = require('http').createServer();
 const WebSocketServer = require('ws').Server;
-const wss = new WebSocketServer({ server: server });
+const wss = new WebSocketServer({ server });
 const express = require('express');
 const app = express();
 const port = 1234;
