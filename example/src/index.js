@@ -9,7 +9,8 @@ const $messages = getEl('messages');
 const $peerConnect = getEl('connect');
 
 $peerConnect.addEventListener('click', async () => {
-  const mediaType = { video: true, audio: true };
+  const type = document.querySelector('input[name="media-type"]:checked').value;
+  const mediaType = type === 'screen' ? { screen: true, audio: true } : { video: true, audio: true };
   const servers = [{ host: 'localhost', port: 1234 }];
 
   try {

@@ -13,7 +13,7 @@ const connect = ({ host, port, username, password, ssl = false }) => {
   });
 };
 
-var connect$1 = async (servers) => {
+var connect$1 = async servers => {
   for (const server of servers) {
     try {
       return await connect(server);
@@ -53,8 +53,15 @@ var requestScreen = async () => {
 const getStreamId = () => new Promise(resolve => {
   window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
   window.addEventListener('message', function listener({ data: { type, streamId } }) {
-    window.removeEventListener('message', listener);
-    resolve(type === 'SCREEN_SHARE' ? streamId : false);
+    if (type === 'SCREEN_SHARE') {
+      window.removeEventListener('message', listener);
+      resolve(streamId);
+    }
+
+    if (type === 'SCREEN_CANCEL') {
+      window.removeEventListener('message', listener);
+      resolve(false);
+    }
   });
 });
 
@@ -287,7 +294,7 @@ const peerConnector = async ({ servers, mediaType, config = CONFIG }) => {
   const signal = new Signal({ rtc, config, webSocket: await connect$1(servers) });
   signal.signaling();
 
-  return rtc
+  return rtc;
 };
 
 const normalizeMediaType = async (mediaType) => {

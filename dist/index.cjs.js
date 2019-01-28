@@ -203,8 +203,16 @@ var getStreamId = function getStreamId() {
       var _ref$data = _ref.data,
           type = _ref$data.type,
           streamId = _ref$data.streamId;
-      window.removeEventListener('message', listener);
-      resolve(type === 'SCREEN_SHARE' ? streamId : false);
+
+      if (type === 'SCREEN_SHARE') {
+        window.removeEventListener('message', listener);
+        resolve(streamId);
+      }
+
+      if (type === 'SCREEN_CANCEL') {
+        window.removeEventListener('message', listener);
+        resolve(false);
+      }
     });
   });
 };
