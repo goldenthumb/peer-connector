@@ -1,6 +1,6 @@
 {
   "name": "peer-connector",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A module to accept and request WebRTC connections by using WebSockets.",
   "main": "./dist/index.cjs",
   "module": "./dist/index.es",
@@ -33,6 +33,8 @@
     "video",
     "voice",
     "webrtc",
+    "webrtc sample",
+    "webrtc example",
     "webrtc stream",
     "screen desktop"
   ],
