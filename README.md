@@ -31,9 +31,8 @@ var peerConnector = require('peer-connector');
 
 (async () => {
   try {
-    const mediaType = { video: true, audio: true } // default mediaType
+    const mediaType = { video: true, audio: true }; // default mediaType
     // mediaType => video, audio, screen
-    // screen can only be used by firefox and chrome(chrome requires chrome extensions).
 
     const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } // default config
     const servers = [

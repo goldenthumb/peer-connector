@@ -641,33 +641,26 @@ var CONFIG = {
 
 var peerConnector = function peerConnector(_ref) {
   return new Promise(function ($return, $error) {
-    var servers, mediaType, _ref$config, config, rtc, signal;
-
-    servers = _ref.servers, mediaType = _ref.mediaType, _ref$config = _ref.config, config = _ref$config === void 0 ? CONFIG : _ref$config;
+    var servers, mediaType, config, stream, rtc, signal;
+    servers = _ref.servers, mediaType = _ref.mediaType, config = _ref.config;
 
     if (!getBrowserRTC()) {
       return $error(new Error('Not support getUserMedia API'));
     }
 
-    return Promise.resolve(normalizeMediaType(mediaType)).then(function ($await_2) {
+    return Promise.resolve(mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType)).then(function ($await_1) {
       try {
-        mediaType = $await_2;
-        return Promise.resolve(navigator.mediaDevices.getUserMedia(mediaType)).then(function ($await_3) {
+        stream = $await_1;
+        rtc = new WebRTC(stream);
+        return Promise.resolve(connect$1(servers)).then(function ($await_2) {
           try {
-            rtc = new WebRTC($await_3);
-            return Promise.resolve(connect$1(servers)).then(function ($await_4) {
-              try {
-                signal = new Signal({
-                  rtc: rtc,
-                  config: config,
-                  webSocket: $await_4
-                });
-                signal.signaling();
-                return $return(rtc);
-              } catch ($boundEx) {
-                return $error($boundEx);
-              }
-            }, $error);
+            signal = new Signal({
+              rtc: rtc,
+              config: Object.assign(CONFIG, config),
+              webSocket: $await_2
+            });
+            signal.signaling();
+            return $return(rtc);
           } catch ($boundEx) {
             return $error($boundEx);
           }
@@ -679,31 +672,26 @@ var peerConnector = function peerConnector(_ref) {
   });
 };
 
-var normalizeMediaType = function normalizeMediaType(mediaType) {
-  return new Promise(function ($return, $error) {
-    mediaType = Object.assign({
-      video: true,
-      audio: true
-    }, mediaType);
+var getDisplayMedia = function getDisplayMedia() {
+  if (navigator.getDisplayMedia) {
+    return navigator.getDisplayMedia({
+      video: true
+    });
+  } else if (navigator.mediaDevices.getDisplayMedia) {
+    return navigator.mediaDevices.getDisplayMedia({
+      video: true
+    });
+  } else {
+    return navigator.mediaDevices.getUserMedia({
+      video: requestScreen()
+    });
+  }
+};
 
-    if (mediaType.screen) {
-      return Promise.resolve(requestScreen()).then(function ($await_5) {
-        try {
-          mediaType.video = $await_5;
-          mediaType.audio = false;
-          delete mediaType.screen;
-          return $If_1.call(this);
-        } catch ($boundEx) {
-          return $error($boundEx);
-        }
-      }.bind(this), $error);
-    }
-
-    function $If_1() {
-      return $return(mediaType);
-    }
-
-    return $If_1.call(this);
+var getUserMedia = function getUserMedia(mediaType) {
+  return navigator.mediaDevices.getUserMedia({
+    video: mediaType.video || true,
+    audio: mediaType.audio || true
   });
 };
 

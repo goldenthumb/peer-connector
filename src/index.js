@@ -9,29 +9,34 @@ const CONFIG = {
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 };
 
-const peerConnector = async ({ servers, mediaType, config = CONFIG }) => {
+const peerConnector = async ({ servers, mediaType, config }) => {
   if (!getBrowserRTC()) {
     throw new Error('Not support getUserMedia API');
   }
 
-  mediaType = await normalizeMediaType(mediaType);
-  const rtc = new WebRTC(await navigator.mediaDevices.getUserMedia(mediaType));
-  const signal = new Signal({ rtc, config, webSocket: await connect(servers) });
+  const stream = await (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
+  const rtc = new WebRTC(stream);
+  const signal = new Signal({ rtc, config: Object.assign(CONFIG, config), webSocket: await connect(servers) });
   signal.signaling();
 
   return rtc;
 };
 
-const normalizeMediaType = async (mediaType) => {
-  mediaType = Object.assign({ video: true, audio: true }, mediaType);
-
-  if (mediaType.screen) {
-    mediaType.video = await requestScreen();
-    mediaType.audio = false;
-    delete mediaType.screen;
+const getDisplayMedia = () => {
+  if (navigator.getDisplayMedia) {
+    return navigator.getDisplayMedia({ video: true });
+  } else if (navigator.mediaDevices.getDisplayMedia) {
+    return navigator.mediaDevices.getDisplayMedia({ video: true });
+  } else {
+    return navigator.mediaDevices.getUserMedia({ video: requestScreen() });
   }
+};
 
-  return mediaType;
+const getUserMedia = (mediaType) => {
+  return navigator.mediaDevices.getUserMedia({
+    video: mediaType.video || true,
+    audio: mediaType.audio || true
+  });
 };
 
 export default peerConnector;
