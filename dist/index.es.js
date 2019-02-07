@@ -155,7 +155,10 @@ class Peer {
     this._pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
 
     this._pc.oniceconnectionstatechange = () => {
-      if (!this._isConnected && this._pc.iceConnectionState === 'connected') this._emitter.emit('connect');
+      if (!this._isConnected && this._pc.iceConnectionState === 'connected') {
+        this._isConnected = true;
+        this._emitter.emit('connect');
+      }
     };
   }
 

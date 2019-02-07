@@ -356,7 +356,11 @@ function () {
       };
 
       this._pc.oniceconnectionstatechange = function () {
-        if (!_this2._isConnected && _this2._pc.iceConnectionState === 'connected') _this2._emitter.emit('connect');
+        if (!_this2._isConnected && _this2._pc.iceConnectionState === 'connected') {
+          _this2._isConnected = true;
+
+          _this2._emitter.emit('connect');
+        }
       };
     }
   }, {
