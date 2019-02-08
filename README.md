@@ -8,6 +8,7 @@ $ npm install peer-connector
 ```
 
 ### Demo(sample test)
+- [example page](https://goldenthumb.github.io/peer-connector)
 ```bash
 $ git clone https://github.com/goldenthumb/peer-connector.git
 $ cd peer-connector
