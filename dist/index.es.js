@@ -73,9 +73,9 @@ const isInstalledExtension = () => new Promise(resolve => {
 });
 
 class Peer {
-  constructor({ id, peerConnection, localStream }) {
+  constructor({ id, config, localStream }) {
     this._id = id;
-    this._pc = peerConnection;
+    this._pc = new RTCPeerConnection(config);
     this._dc = null;
     this._emitter = new Emitter();
     this._localSdp = null;
@@ -242,7 +242,7 @@ class Signal {
   _createPeer(peerId) {
     const peer = new Peer({
       id: peerId,
-      peerConnection: new RTCPeerConnection(this._config),
+      config: this._config ,
       localStream: this._rtc.stream,
     });
 

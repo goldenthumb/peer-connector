@@ -259,13 +259,13 @@ var Peer =
 function () {
   function Peer(_ref) {
     var id = _ref.id,
-        peerConnection = _ref.peerConnection,
+        config = _ref.config,
         localStream = _ref.localStream;
 
     _classCallCheck(this, Peer);
 
     this._id = id;
-    this._pc = peerConnection;
+    this._pc = new RTCPeerConnection(config);
     this._dc = null;
     this._emitter = new Emitter();
     this._localSdp = null;
@@ -571,7 +571,7 @@ function () {
 
       var peer = new Peer({
         id: peerId,
-        peerConnection: new RTCPeerConnection(this._config),
+        config: this._config,
         localStream: this._rtc.stream
       });
       peer.on('onIceCandidate', function (candidate) {

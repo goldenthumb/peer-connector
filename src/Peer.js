@@ -1,9 +1,9 @@
 import Emitter from 'event-emitter';
 
 export default class Peer {
-  constructor({ id, peerConnection, localStream }) {
+  constructor({ id, config, localStream }) {
     this._id = id;
-    this._pc = peerConnection;
+    this._pc = new RTCPeerConnection(config);
     this._dc = null;
     this._emitter = new Emitter();
     this._localSdp = null;

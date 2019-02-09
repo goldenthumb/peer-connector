@@ -69,7 +69,7 @@ export default class Signal {
   _createPeer(peerId) {
     const peer = new Peer({
       id: peerId,
-      peerConnection: new RTCPeerConnection(this._config),
+      config: this._config,
       localStream: this._rtc.stream,
     });
 
