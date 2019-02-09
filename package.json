@@ -1,6 +1,6 @@
 {
   "name": "peer-connector",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "A module to accept and request WebRTC connections by using WebSockets.",
   "main": "./dist/index.cjs",
   "module": "./dist/index.es",

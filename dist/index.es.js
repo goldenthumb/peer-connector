@@ -72,10 +72,21 @@ const isInstalledExtension = () => new Promise(resolve => {
   img.onerror = () => resolve(false);
 });
 
+const CONFIG = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+const MESSAGE = {
+  JOIN: '/PEER_CONNECTOR/join',
+  REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
+  SDP: '/PEER_CONNECTOR/sdp',
+  CANDIDATE: '/PEER_CONNECTOR/candidate'
+};
+
 class Peer {
-  constructor({ id = randombytes(20).toString('hex'), localStream, config }) {
+  constructor({ localStream, id = randombytes(20).toString('hex'), config }) {
     this._id = id;
-    this._pc = new RTCPeerConnection(config);
+    this._pc = new RTCPeerConnection(Object.assign(CONFIG, config));
     this._dc = null;
     this._emitter = new Emitter();
     this._localSdp = null;
@@ -175,17 +186,6 @@ class Peer {
   }
 }
 
-const CONFIG = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-};
-
-const MESSAGE = {
-  JOIN: '/PEER_CONNECTOR/join',
-  REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
-  SDP: '/PEER_CONNECTOR/sdp',
-  CANDIDATE: '/PEER_CONNECTOR/candidate'
-};
-
 class Signal {
   constructor({ webSocket, config, rtc }) {
     this._emitter = new Emitter();
@@ -251,7 +251,7 @@ class Signal {
     });
 
     peer.on('onIceCandidate', candidate => this._send(MESSAGE.CANDIDATE, { receiver: peer.id, candidate }));
-    this._rtc.addNewPeer(peer);
+    this._rtc.addPeer(peer);
 
     return peer;
   }
@@ -281,7 +281,7 @@ class WebRTC {
     return this._peers;
   }
 
-  addNewPeer(peer) {
+  addPeer(peer) {
     this.peers.set(peer.id, peer);
     peer.on('connect', () => this._emitter.emit('connect', peer));
   }
@@ -294,9 +294,12 @@ const peerConnector = async ({ servers, mediaType, config }) => {
 
   const stream = await (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
   const rtc = new WebRTC(stream);
-  const signal = new Signal({ rtc, config, webSocket: await connect$1(servers) });
-  signal.signaling();
 
+  if (servers) {
+    const signal = new Signal({ rtc, config, webSocket: await connect$1(servers) });
+    signal.signaling();
+  }
+  
   return rtc;
 };
 
@@ -318,3 +321,4 @@ const getUserMedia = (mediaType) => {
 };
 
 export default peerConnector;
+export { Peer };

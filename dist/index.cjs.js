@@ -1,5 +1,7 @@
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var detectBrowser = require('detect-browser');
@@ -254,19 +256,31 @@ function _createClass(Constructor, protoProps, staticProps) {
   return Constructor;
 }
 
+var CONFIG = {
+  iceServers: [{
+    urls: 'stun:stun.l.google.com:19302'
+  }]
+};
+var MESSAGE = {
+  JOIN: '/PEER_CONNECTOR/join',
+  REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
+  SDP: '/PEER_CONNECTOR/sdp',
+  CANDIDATE: '/PEER_CONNECTOR/candidate'
+};
+
 var Peer =
 /*#__PURE__*/
 function () {
   function Peer(_ref) {
-    var _ref$id = _ref.id,
+    var localStream = _ref.localStream,
+        _ref$id = _ref.id,
         id = _ref$id === void 0 ? randombytes(20).toString('hex') : _ref$id,
-        localStream = _ref.localStream,
         config = _ref.config;
 
     _classCallCheck(this, Peer);
 
     this._id = id;
-    this._pc = new RTCPeerConnection(config);
+    this._pc = new RTCPeerConnection(Object.assign(CONFIG, config));
     this._dc = null;
     this._emitter = new Emitter();
     this._localSdp = null;
@@ -428,18 +442,6 @@ function () {
   return Peer;
 }();
 
-var CONFIG = {
-  iceServers: [{
-    urls: 'stun:stun.l.google.com:19302'
-  }]
-};
-var MESSAGE = {
-  JOIN: '/PEER_CONNECTOR/join',
-  REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
-  SDP: '/PEER_CONNECTOR/sdp',
-  CANDIDATE: '/PEER_CONNECTOR/candidate'
-};
-
 var Signal =
 /*#__PURE__*/
 function () {
@@ -587,7 +589,7 @@ function () {
         });
       });
 
-      this._rtc.addNewPeer(peer);
+      this._rtc.addPeer(peer);
 
       return peer;
     }
@@ -619,8 +621,8 @@ function () {
       this._emitter.on(eventName, listener);
     }
   }, {
-    key: "addNewPeer",
-    value: function addNewPeer(peer) {
+    key: "addPeer",
+    value: function addPeer(peer) {
       var _this = this;
 
       this.peers.set(peer.id, peer);
@@ -652,27 +654,36 @@ var peerConnector = function peerConnector(_ref) {
       return $error(new Error('Not support getUserMedia API'));
     }
 
-    return Promise.resolve(mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType)).then(function ($await_1) {
+    return Promise.resolve(mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType)).then(function ($await_2) {
       try {
-        stream = $await_1;
+        stream = $await_2;
         rtc = new WebRTC(stream);
-        return Promise.resolve(connect$1(servers)).then(function ($await_2) {
-          try {
-            signal = new Signal({
-              rtc: rtc,
-              config: config,
-              webSocket: $await_2
-            });
-            signal.signaling();
-            return $return(rtc);
-          } catch ($boundEx) {
-            return $error($boundEx);
-          }
-        }, $error);
+
+        if (servers) {
+          return Promise.resolve(connect$1(servers)).then(function ($await_3) {
+            try {
+              signal = new Signal({
+                rtc: rtc,
+                config: config,
+                webSocket: $await_3
+              });
+              signal.signaling();
+              return $If_1.call(this);
+            } catch ($boundEx) {
+              return $error($boundEx);
+            }
+          }.bind(this), $error);
+        }
+
+        function $If_1() {
+          return $return(rtc);
+        }
+
+        return $If_1.call(this);
       } catch ($boundEx) {
         return $error($boundEx);
       }
-    }, $error);
+    }.bind(this), $error);
   });
 };
 
@@ -699,4 +710,5 @@ var getUserMedia = function getUserMedia(mediaType) {
   });
 };
 
-module.exports = peerConnector;
+exports.default = peerConnector;
+exports.Peer = Peer;
