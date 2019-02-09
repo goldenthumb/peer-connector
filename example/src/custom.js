@@ -30,7 +30,7 @@ $peerConnect.addEventListener('click', async () => {
     const createPeer = (id) => {
       const peer = new Peer({ id, localStream: pc.stream });
 
-      peer.on('onIceCandidate', candidate => {
+      peer.on('onIceCandidate', (candidate) => {
         ws.send(JSON.stringify({
           event: 'candidate',
           data: {
@@ -41,7 +41,7 @@ $peerConnect.addEventListener('click', async () => {
         }));
       });
 
-      pc.addNewPeer(peer);
+      pc.addPeer(peer);
 
       return peer;
     };
