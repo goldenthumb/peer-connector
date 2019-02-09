@@ -4,6 +4,7 @@ import getBrowserRTC from 'get-browser-rtc'
 
 import Signal from './Signal';
 import WebRTC from './WebRTC';
+import Peer from './Peer';
 
 const peerConnector = async ({ servers, mediaType, config }) => {
   if (!getBrowserRTC()) {
@@ -12,9 +13,12 @@ const peerConnector = async ({ servers, mediaType, config }) => {
 
   const stream = await (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
   const rtc = new WebRTC(stream);
-  const signal = new Signal({ rtc, config, webSocket: await connect(servers) });
-  signal.signaling();
 
+  if (servers) {
+    const signal = new Signal({ rtc, config, webSocket: await connect(servers) });
+    signal.signaling();
+  }
+  
   return rtc;
 };
 
@@ -36,3 +40,4 @@ const getUserMedia = (mediaType) => {
 };
 
 export default peerConnector;
+export { Peer };
