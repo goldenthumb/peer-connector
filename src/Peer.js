@@ -1,7 +1,8 @@
 import Emitter from 'event-emitter';
+import randombytes from 'randombytes';
 
 export default class Peer {
-  constructor({ id, config, localStream }) {
+  constructor({ id = randombytes(20).toString('hex'), localStream, config }) {
     this._id = id;
     this._pc = new RTCPeerConnection(config);
     this._dc = null;
