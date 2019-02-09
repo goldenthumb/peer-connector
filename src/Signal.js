@@ -68,7 +68,7 @@ export default class Signal {
     });
 
     peer.on('onIceCandidate', candidate => this._send(MESSAGE.CANDIDATE, { receiver: peer.id, candidate }));
-    this._rtc.addNewPeer(peer);
+    this._rtc.addPeer(peer);
 
     return peer;
   }

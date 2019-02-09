@@ -19,7 +19,7 @@ export default class WebRTC {
     return this._peers;
   }
 
-  addNewPeer(peer) {
+  addPeer(peer) {
     this.peers.set(peer.id, peer);
     peer.on('connect', () => this._emitter.emit('connect', peer));
   }
