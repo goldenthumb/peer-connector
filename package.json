@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev": "node example/wsServer & webpack-dev-server --config example/webpack/devserver.js --hot --inline",
+    "dev-custom": "node example/wsServer & webpack-dev-server --config example/webpack/devserver.js --hot --inline --env.custom",
     "prepublishOnly": "npm run build",
     "build": "npm run build-cjs && npm run build-es && npm run build-umd",
     "build-cjs": "bili --format cjs --filename index[suffix].js",

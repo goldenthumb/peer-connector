@@ -1,10 +1,11 @@
-const {resolve} = require('path');
+const { resolve } = require('path');
 const devConfig = require('./dev');
 const buildConfig = require('./build');
 
-module.exports = () => {
+module.exports = (env) => {
   const config = {
     ...devConfig,
+    entry: [resolve(__dirname, `../src/${(env && env.custom) ? 'custom' : 'index'}.js`)],
     devServer: {
       port: 3000,
       host: 'localhost',
@@ -12,6 +13,8 @@ module.exports = () => {
       publicPath: '/dist/js'
     }
   };
+
+  console.log(config.entry);
 
   config.output.filename = buildConfig.output.filename;
 
