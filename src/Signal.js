@@ -1,13 +1,7 @@
 import EventEmitter from 'event-emitter';
 import randombytes from 'randombytes';
 import Peer from './Peer';
-
-const MESSAGE = {
-  JOIN: '/PEER_CONNECTOR/join',
-  REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
-  SDP: '/PEER_CONNECTOR/sdp',
-  CANDIDATE: '/PEER_CONNECTOR/candidate'
-};
+import { CONFIG, MESSAGE } from './constants';
 
 export default class Signal {
   constructor({ webSocket, config, rtc }) {
@@ -15,7 +9,7 @@ export default class Signal {
     this._ws = webSocket;
     this._id = randombytes(20).toString('hex');
     this._rtc = rtc;
-    this._config = config;
+    this._config = Object.assign(CONFIG, config);
 
     webSocket.onmessage = this._onMessage.bind(this);
   }

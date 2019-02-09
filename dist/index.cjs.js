@@ -258,9 +258,10 @@ var Peer =
 /*#__PURE__*/
 function () {
   function Peer(_ref) {
-    var id = _ref.id,
-        config = _ref.config,
-        localStream = _ref.localStream;
+    var _ref$id = _ref.id,
+        id = _ref$id === void 0 ? randombytes(20).toString('hex') : _ref$id,
+        localStream = _ref.localStream,
+        config = _ref.config;
 
     _classCallCheck(this, Peer);
 
@@ -427,6 +428,11 @@ function () {
   return Peer;
 }();
 
+var CONFIG = {
+  iceServers: [{
+    urls: 'stun:stun.l.google.com:19302'
+  }]
+};
 var MESSAGE = {
   JOIN: '/PEER_CONNECTOR/join',
   REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
@@ -448,7 +454,7 @@ function () {
     this._ws = webSocket;
     this._id = randombytes(20).toString('hex');
     this._rtc = rtc;
-    this._config = config;
+    this._config = Object.assign(CONFIG, config);
     webSocket.onmessage = this._onMessage.bind(this);
   }
 
@@ -637,12 +643,6 @@ function () {
   return WebRTC;
 }();
 
-var CONFIG = {
-  iceServers: [{
-    urls: 'stun:stun.l.google.com:19302'
-  }]
-};
-
 var peerConnector = function peerConnector(_ref) {
   return new Promise(function ($return, $error) {
     var servers, mediaType, config, stream, rtc, signal;
@@ -660,7 +660,7 @@ var peerConnector = function peerConnector(_ref) {
           try {
             signal = new Signal({
               rtc: rtc,
-              config: Object.assign(CONFIG, config),
+              config: config,
               webSocket: $await_2
             });
             signal.signaling();

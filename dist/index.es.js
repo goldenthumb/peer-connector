@@ -73,7 +73,7 @@ const isInstalledExtension = () => new Promise(resolve => {
 });
 
 class Peer {
-  constructor({ id, config, localStream }) {
+  constructor({ id = randombytes(20).toString('hex'), localStream, config }) {
     this._id = id;
     this._pc = new RTCPeerConnection(config);
     this._dc = null;
@@ -175,6 +175,10 @@ class Peer {
   }
 }
 
+const CONFIG = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
 const MESSAGE = {
   JOIN: '/PEER_CONNECTOR/join',
   REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
@@ -188,7 +192,7 @@ class Signal {
     this._ws = webSocket;
     this._id = randombytes(20).toString('hex');
     this._rtc = rtc;
-    this._config = config;
+    this._config = Object.assign(CONFIG, config);
 
     webSocket.onmessage = this._onMessage.bind(this);
   }
@@ -242,7 +246,7 @@ class Signal {
   _createPeer(peerId) {
     const peer = new Peer({
       id: peerId,
-      config: this._config ,
+      config: this._config,
       localStream: this._rtc.stream,
     });
 
@@ -283,10 +287,6 @@ class WebRTC {
   }
 }
 
-const CONFIG = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-};
-
 const peerConnector = async ({ servers, mediaType, config }) => {
   if (!getBrowserRTC()) {
     throw new Error('Not support getUserMedia API');
@@ -294,7 +294,7 @@ const peerConnector = async ({ servers, mediaType, config }) => {
 
   const stream = await (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
   const rtc = new WebRTC(stream);
-  const signal = new Signal({ rtc, config: Object.assign(CONFIG, config), webSocket: await connect$1(servers) });
+  const signal = new Signal({ rtc, config, webSocket: await connect$1(servers) });
   signal.signaling();
 
   return rtc;
