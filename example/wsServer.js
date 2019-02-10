@@ -5,7 +5,6 @@ const express = require('express');
 const app = express();
 const port = 1234;
 
-app.use(express.static('.'));
 server.on('request', app);
 server.listen(port, () => console.log('Listening on ' + server.address().port));
 

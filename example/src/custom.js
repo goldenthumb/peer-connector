@@ -8,11 +8,9 @@ const $videoGroup = getEl('video-group');
 const $messages = getEl('messages');
 const $peerConnect = getEl('connect');
 
-const wsConnect = ({ host, port, username, password, ssl = false }) => {
+const wsConnect = (url) => {
   return new Promise((resolve, reject) => {
-    const accessAuth = username && password ? `${username}:${password}@` : '';
-    const webSocket = new WebSocket(`${ssl ? 'wss' : 'ws'}://${accessAuth}${host}:${port}`);
-
+    const webSocket = new WebSocket(url);
     webSocket.onopen = () => resolve(webSocket);
     webSocket.onerror = () => reject(new Error('connect failed.'));
   });
@@ -25,7 +23,7 @@ $peerConnect.addEventListener('click', async () => {
 
   try {
     const pc = await peerConnector({ mediaType });
-    const ws = await wsConnect({ host: 'localhost', port: 1234 });
+    const ws = await wsConnect('ws://localhost:1234');
 
     const createPeer = (id) => {
       const peer = new Peer({ id, localStream: pc.stream });

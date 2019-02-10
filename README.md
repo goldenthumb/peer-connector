@@ -86,11 +86,9 @@ Now open this URL in your browser: http://localhost:3000/
 ```js
 import peerConnector, { Peer } from 'peer-connector';
 
-const wsConnect = ({ host, port, username, password, ssl = false }) => {
+const wsConnect = (url) => {
   return new Promise((resolve, reject) => {
-    const accessAuth = username && password ? `${username}:${password}@` : '';
-    const webSocket = new WebSocket(`${ssl ? 'wss' : 'ws'}://${accessAuth}${host}:${port}`);
-
+    const webSocket = new WebSocket(url);
     webSocket.onopen = () => resolve(webSocket);
     webSocket.onerror = () => reject(new Error('connect failed.'));
   });
@@ -101,7 +99,7 @@ const wsConnect = ({ host, port, username, password, ssl = false }) => {
     const mediaType = { video: true, audio: true };
     const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; // default config
     const pc = await peerConnector({ mediaType });
-    const ws = await wsConnect({ host: 'localhost', port: 1234 });
+    const ws = await wsConnect('ws://localhost:1234');
 
     const createPeer = (id) => {
       const peer = new Peer({ 
@@ -208,6 +206,7 @@ const wsConnect = ({ host, port, username, password, ssl = false }) => {
 | peers   | prop   | connected peers              |
 | connect | event  | triggers when connect WebRTC |
 | addPeer | method | add peer                     |
+
 <br />
 
 ### peer
@@ -229,6 +228,7 @@ const wsConnect = ({ host, port, username, password, ssl = false }) => {
 | open                 | event  | triggers when data channel open  |
 | close                | event  | triggers when data channel close |
 | error                | event  | triggers when data channel error |
+
 <br />
 
 ### License
