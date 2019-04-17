@@ -275,12 +275,13 @@ function () {
     var localStream = _ref.localStream,
         _ref$id = _ref.id,
         id = _ref$id === void 0 ? randombytes(20).toString('hex') : _ref$id,
-        config = _ref.config;
+        _ref$config = _ref.config,
+        config = _ref$config === void 0 ? CONFIG : _ref$config;
 
     _classCallCheck(this, Peer);
 
     this._id = id;
-    this._pc = new RTCPeerConnection(Object.assign(CONFIG, config));
+    this._pc = new RTCPeerConnection(config);
     this._dc = null;
     this._emitter = new Emitter();
     this._localSdp = null;
