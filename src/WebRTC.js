@@ -23,4 +23,8 @@ export default class WebRTC {
     this.peers.set(peer.id, peer);
     peer.on('connect', () => this._emitter.emit('connect', peer));
   }
+
+  close() {
+    this._stream.getTracks().forEach(track => track.stop());
+  }
 }

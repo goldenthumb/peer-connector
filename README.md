@@ -206,28 +206,30 @@ const wsConnect = (url) => {
 | peers   | prop   | connected peers              |
 | connect | event  | triggers when connect WebRTC |
 | addPeer | method | add peer                     |
+| close   | method | close media local stream     |
 
 <br />
 
 ### peer
-|  Name                | type   | Description                      |
-|----------------------|--------|----------------------------------|
-| id                   | prop   | peer id                          |
-| localSdp             | prop   | local sdp                        |
-| localStream          | prop   | local media stream               |
-| remoteSdp            | prop   | remote sdp                       |
-| remoteStream         | prop   | remote media stream              |
-| createOfferSdp       | method | create offer and set local sdp   |
-| createAnswerSdp      | method | create answer and set local sdp  |
-| createDataChannel    | method | create data channel              |
-| setRemoteDescription | method | set remote sdp                   |
-| addIceCandidate      | method | add ice candidate                |
-| onIceCandidate       | event  | triggers when candidates occur   |
-| send                 | method | send data using data channel     |
-| message              | event  | data received by data channel    |
-| open                 | event  | triggers when data channel open  |
-| close                | event  | triggers when data channel close |
-| error                | event  | triggers when data channel error |
+|  Name                | type   | Description                                        |
+|----------------------|--------|----------------------------------------------------|
+| id                   | prop   | peer id                                            |
+| localSdp             | prop   | local sdp                                          |
+| localStream          | prop   | local media stream                                 |
+| remoteSdp            | prop   | remote sdp                                         |
+| remoteStream         | prop   | remote media stream                                |
+| createOfferSdp       | method | create offer and set local sdp                     |
+| createAnswerSdp      | method | create answer and set local sdp                    |
+| createDataChannel    | method | create data channel                                |
+| setRemoteDescription | method | set remote sdp                                     |
+| addIceCandidate      | method | add ice candidate                                  |
+| send                 | method | send data using data channel                       |
+| close                | method | peer close                                         |
+| onIceCandidate       | event  | triggers when candidates occur                     |
+| message              | event  | data received by data channel                      |
+| open                 | event  | triggers when data channel open                    |
+| close                | event  | triggers when ICE connection or data channel close |
+| error                | event  | triggers when data channel error                   |
 
 <br />
 

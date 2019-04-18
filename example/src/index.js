@@ -42,6 +42,10 @@ $peerConnect.addEventListener('click', async () => {
         p.innerHTML = data;
         $messages.appendChild(p);
       });
+
+      peer.on('close', (data) => {
+        console.log('called ', data);
+      });
     });
   } catch (e) {
     alert(e);
