@@ -321,6 +321,11 @@ function () {
       this._dc && this._dc.send(data);
     }
   }, {
+    key: "close",
+    value: function close() {
+      this._pc.close();
+    }
+  }, {
     key: "_setDataChannel",
     value: function _setDataChannel(dc) {
       var _this = this;
@@ -333,7 +338,7 @@ function () {
       };
 
       dc.onclose = function () {
-        return _this._emitter.emit('close');
+        return _this._emitter.emit('close', 'datachannel');
       };
 
       dc.onopen = function () {
@@ -376,6 +381,12 @@ function () {
           _this2._isConnected = true;
 
           _this2._emitter.emit('connect');
+        }
+
+        if (_this2._pc.iceConnectionState === 'disconnected') {
+          _this2._isConnected = false;
+
+          _this2._emitter.emit('close', 'ICE connection');
         }
       };
     }
@@ -629,6 +640,13 @@ function () {
       this.peers.set(peer.id, peer);
       peer.on('connect', function () {
         return _this._emitter.emit('connect', peer);
+      });
+    }
+  }, {
+    key: "close",
+    value: function close() {
+      this._stream.getTracks().forEach(function (track) {
+        return track.stop();
       });
     }
   }, {

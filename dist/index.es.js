@@ -139,11 +139,15 @@ class Peer {
     this._dc && this._dc.send(data);
   }
 
+  close() {
+    this._pc.close();
+  }
+
   _setDataChannel(dc) {
     this._dc = dc;
 
     dc.onmessage = ({ data }) => this._emitter.emit('message', data);
-    dc.onclose = () => this._emitter.emit('close');
+    dc.onclose = () => this._emitter.emit('close', 'datachannel');
     dc.onopen = () => this._emitter.emit('open');
     dc.onerror = (error) => {
       if (!this._emitter.hasListeners(this._emitter, 'error')) throw error;
@@ -169,6 +173,11 @@ class Peer {
       if (!this._isConnected && this._pc.iceConnectionState === 'connected') {
         this._isConnected = true;
         this._emitter.emit('connect');
+      }
+
+      if (this._pc.iceConnectionState === 'disconnected') {
+        this._isConnected = false;
+        this._emitter.emit('close', 'ICE connection');
       }
     };
   }
@@ -284,6 +293,10 @@ class WebRTC {
   addPeer(peer) {
     this.peers.set(peer.id, peer);
     peer.on('connect', () => this._emitter.emit('connect', peer));
+  }
+
+  close() {
+    this._stream.getTracks().forEach(track => track.stop());
   }
 }
 
