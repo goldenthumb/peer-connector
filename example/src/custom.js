@@ -1,4 +1,4 @@
-import peerConnector, { Peer } from '../../src';
+import peerConnector from '../../src';
 
 const getEl = id => document.getElementById(id);
 const createEl = el => document.createElement(el);
@@ -24,25 +24,6 @@ $peerConnect.addEventListener('click', async () => {
   try {
     const pc = await peerConnector({ mediaType });
     const ws = await wsConnect('ws://localhost:1234');
-
-    const createPeer = (id) => {
-      const peer = new Peer({ id, localStream: pc.stream });
-
-      peer.on('onIceCandidate', (candidate) => {
-        ws.send(JSON.stringify({
-          event: 'candidate',
-          data: {
-            sender: userId,
-            receiver: peer.id,
-            candidate
-          }
-        }));
-      });
-
-      pc.addPeer(peer);
-
-      return peer;
-    };
 
     ws.onmessage = async (message) => {
       if (!message) return;
@@ -76,7 +57,7 @@ $peerConnect.addEventListener('click', async () => {
 
       if (event === 'sdp') {
         const { sender, sdp } = data;
-        const peer = pc.peers.has(sender) ? pc.peers.get(sender) : createPeer(sender);
+        const peer = getPeerOrCreate(sender);
         await peer.setRemoteDescription(sdp);
 
         if (sdp.type === 'offer') {
@@ -93,10 +74,30 @@ $peerConnect.addEventListener('click', async () => {
 
       if (event === 'candidate') {
         const { sender, candidate } = data;
-        const peer = pc.peers.has(sender) ? pc.peers.get(sender) : createPeer(sender);
+        const peer = getPeerOrCreate(sender);
         peer.addIceCandidate(candidate);
       }
     };
+
+    const getPeerOrCreate = (id) => {
+      return pc.hasPeer(id)
+        ? pc.getPeer(id)
+        : createPeer(id);
+    };
+
+    const createPeer = (id) => pc.createPeer({
+      id,
+      onIceCandidate: (candidate) => {
+        ws.send(JSON.stringify({
+          event: 'candidate',
+          data: {
+            sender: userId,
+            receiver: id,
+            candidate
+          }
+        }));
+      }
+    });
 
     ws.send(JSON.stringify({ event: 'join', data: { sender: userId } }));
 
