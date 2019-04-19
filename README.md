@@ -54,7 +54,7 @@ var peerConnector = require('peer-connector');
       config,      // optional
     });
 
-    console.log(rtc.stream); // local stream;
+    console.log(pc.stream); // local stream;
 
     pc.on('connect', (peer) => {
       // peer is generated each time WebRTC is connected.
@@ -73,6 +73,7 @@ var peerConnector = require('peer-connector');
   }
 })();
 ```
+<br />
 
 ## Usage (custom signal)
 You can implement the signaling logic as you wish. (Using websocket and MQTT or other) <br>
@@ -84,7 +85,7 @@ Now open this URL in your browser: http://localhost:3000/
 ```
 
 ```js
-import peerConnector, { Peer } from 'peer-connector';
+import peerConnector from 'peer-connector';
 
 const wsConnect = (url) => {
   return new Promise((resolve, reject) => {
@@ -96,35 +97,12 @@ const wsConnect = (url) => {
 
 (async () => {
   try {
-    const mediaType = { video: true, audio: true };
-    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; // default config
     const pc = await peerConnector({ mediaType });
     const ws = await wsConnect('ws://localhost:1234');
 
-    const createPeer = (id) => {
-      const peer = new Peer({ 
-        id,                      // optional
-        localStream: pc.stream,  // required
-        config                   // optional
-      });
-
-      peer.on('onIceCandidate', (candidate) => {
-        ws.send(JSON.stringify({
-          event: 'candidate',
-          data: {
-            sender: userId,
-            receiver: peer.id,
-            candidate
-          }
-        }));
-      });
-
-      pc.addPeer(peer);
-
-      return peer;
-    };
-
     ws.onmessage = async (message) => {
+      if (!message) return;
+
       const { event, data } = JSON.parse(message.data);
 
       if (data.receiver && data.receiver !== userId) return;
@@ -154,7 +132,7 @@ const wsConnect = (url) => {
 
       if (event === 'sdp') {
         const { sender, sdp } = data;
-        const peer = pc.peers.has(sender) ? pc.peers.get(sender) : createPeer(sender);
+        const peer = getPeerOrCreate(sender);
         await peer.setRemoteDescription(sdp);
 
         if (sdp.type === 'offer') {
@@ -171,14 +149,34 @@ const wsConnect = (url) => {
 
       if (event === 'candidate') {
         const { sender, candidate } = data;
-        const peer = pc.peers.has(sender) ? pc.peers.get(sender) : createPeer(sender);
+        const peer = getPeerOrCreate(sender);
         peer.addIceCandidate(candidate);
       }
     };
 
+    const getPeerOrCreate = (id) => {
+      return pc.hasPeer(id)
+        ? pc.getPeer(id)
+        : createPeer(id);
+    };
+
+    const createPeer = (id) => pc.createPeer({
+      id,
+      onIceCandidate: (candidate) => {
+        ws.send(JSON.stringify({
+          event: 'candidate',
+          data: {
+            sender: userId,
+            receiver: id,
+            candidate
+          }
+        }));
+      }
+    });
+
     ws.send(JSON.stringify({ event: 'join', data: { sender: userId } }));
 
-    console.log(rtc.stream); // local stream;
+    console.log(pc.stream); // local stream;
 
     pc.on('connect', (peer) => {
       // peer is generated each time WebRTC is connected.
