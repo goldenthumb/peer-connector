@@ -1,7 +1,5 @@
 'use strict';
 
-Object.defineProperty(exports, '__esModule', { value: true });
-
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var detectBrowser = require('detect-browser');
@@ -268,6 +266,159 @@ var MESSAGE = {
   CANDIDATE: '/PEER_CONNECTOR/candidate'
 };
 
+var Signal =
+/*#__PURE__*/
+function () {
+  function Signal(_ref) {
+    var webSocket = _ref.webSocket,
+        peerConnector = _ref.peerConnector;
+
+    _classCallCheck(this, Signal);
+
+    this._emitter = new Emitter();
+    this._ws = webSocket;
+    this._id = randombytes(20).toString('hex');
+    this._pc = peerConnector;
+    webSocket.onmessage = this._onMessage.bind(this);
+  }
+
+  _createClass(Signal, [{
+    key: "_on",
+    value: function _on(eventName, listener) {
+      this._emitter.on(eventName, listener);
+    }
+  }, {
+    key: "_onMessage",
+    value: function _onMessage(message) {
+      if (!message) return;
+
+      var _JSON$parse = JSON.parse(message.data),
+          event = _JSON$parse.event,
+          data = _JSON$parse.data;
+
+      if (this._equalId(data)) this._emitter.emit(event, data);
+    }
+  }, {
+    key: "_send",
+    value: function _send(event) {
+      var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+      this._ws.send(JSON.stringify({
+        event: event,
+        data: Object.assign({}, data, {
+          sender: this._id
+        })
+      }));
+    }
+  }, {
+    key: "_equalId",
+    value: function _equalId(data) {
+      return !data.receiver || data.receiver === this._id;
+    }
+  }, {
+    key: "signaling",
+    value: function signaling() {
+      var _this = this;
+
+      this._send(MESSAGE.JOIN);
+
+      this._on(MESSAGE.JOIN, function (_ref2) {
+        var sender = _ref2.sender;
+
+        _this._send(MESSAGE.REQUEST_CONNECT, {
+          receiver: sender
+        });
+      });
+
+      this._on(MESSAGE.REQUEST_CONNECT, function (_ref3) {
+        return new Promise(function ($return, $error) {
+          var sender, peer;
+          sender = _ref3.sender;
+          peer = _this._createPeer(sender);
+          peer.createDataChannel(_this._id);
+          return Promise.resolve(peer.createOfferSdp()).then(function ($await_2) {
+            try {
+              _this._send(MESSAGE.SDP, {
+                receiver: peer.id,
+                sdp: $await_2
+              });
+
+              return $return();
+            } catch ($boundEx) {
+              return $error($boundEx);
+            }
+          }, $error);
+        });
+      });
+
+      this._on(MESSAGE.SDP, function (_ref4) {
+        return new Promise(function ($return, $error) {
+          var sender, sdp, peer;
+          sender = _ref4.sender, sdp = _ref4.sdp;
+          peer = _this._getPeerOrCreate(sender);
+          return Promise.resolve(peer.setRemoteDescription(sdp)).then(function ($await_3) {
+            try {
+              if (sdp.type === 'offer') {
+                return Promise.resolve(peer.createAnswerSdp()).then(function ($await_4) {
+                  try {
+                    _this._send(MESSAGE.SDP, {
+                      receiver: peer.id,
+                      sdp: $await_4
+                    });
+
+                    return $If_1.call(this);
+                  } catch ($boundEx) {
+                    return $error($boundEx);
+                  }
+                }.bind(this), $error);
+              }
+
+              function $If_1() {
+                return $return();
+              }
+
+              return $If_1.call(this);
+            } catch ($boundEx) {
+              return $error($boundEx);
+            }
+          }.bind(this), $error);
+        });
+      });
+
+      this._on(MESSAGE.CANDIDATE, function (_ref5) {
+        var sender = _ref5.sender,
+            candidate = _ref5.candidate;
+
+        var peer = _this._getPeerOrCreate(sender);
+
+        peer.addIceCandidate(candidate);
+      });
+    }
+  }, {
+    key: "_getPeerOrCreate",
+    value: function _getPeerOrCreate(id) {
+      return this._pc.hasPeer(id) ? this._pc.getPeer(id) : this._createPeer(id);
+    }
+  }, {
+    key: "_createPeer",
+    value: function _createPeer(id) {
+      var _this2 = this;
+
+      return this._pc.createPeer({
+        id: id,
+        onIceCandidate: function onIceCandidate(candidate) {
+          _this2._send(MESSAGE.CANDIDATE, {
+            receiver: id,
+            candidate: candidate
+          });
+        }
+      });
+    }
+  }]);
+
+  return Signal;
+}();
+
 var Peer =
 /*#__PURE__*/
 function () {
@@ -276,7 +427,9 @@ function () {
         _ref$id = _ref.id,
         id = _ref$id === void 0 ? randombytes(20).toString('hex') : _ref$id,
         _ref$config = _ref.config,
-        config = _ref$config === void 0 ? CONFIG : _ref$config;
+        config = _ref$config === void 0 ? CONFIG : _ref$config,
+        _ref$data = _ref.data,
+        data = _ref$data === void 0 ? {} : _ref$data;
 
     _classCallCheck(this, Peer);
 
@@ -289,6 +442,7 @@ function () {
     this._remoteStream = null;
     this._localStream = localStream;
     this._isConnected = false;
+    this._data = data;
 
     this._init();
   }
@@ -430,6 +584,11 @@ function () {
       return this._id;
     }
   }, {
+    key: "data",
+    get: function get() {
+      return this._data;
+    }
+  }, {
     key: "localStream",
     get: function get() {
       return this._localStream;
@@ -454,193 +613,58 @@ function () {
   return Peer;
 }();
 
-var Signal =
+var PeerConnector =
 /*#__PURE__*/
 function () {
-  function Signal(_ref) {
-    var webSocket = _ref.webSocket,
-        config = _ref.config,
-        rtc = _ref.rtc;
+  function PeerConnector(_ref) {
+    var stream = _ref.stream,
+        config = _ref.config;
 
-    _classCallCheck(this, Signal);
-
-    this._emitter = new Emitter();
-    this._ws = webSocket;
-    this._id = randombytes(20).toString('hex');
-    this._rtc = rtc;
-    this._config = Object.assign(CONFIG, config);
-    webSocket.onmessage = this._onMessage.bind(this);
-  }
-
-  _createClass(Signal, [{
-    key: "_on",
-    value: function _on(eventName, listener) {
-      this._emitter.on(eventName, listener);
-    }
-  }, {
-    key: "_onMessage",
-    value: function _onMessage(message) {
-      if (!message) return;
-
-      var _JSON$parse = JSON.parse(message.data),
-          event = _JSON$parse.event,
-          data = _JSON$parse.data;
-
-      if (this._equalId(data)) this._emitter.emit(event, data);
-    }
-  }, {
-    key: "_send",
-    value: function _send(event) {
-      var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-
-      this._ws.send(JSON.stringify({
-        event: event,
-        data: Object.assign({}, data, {
-          sender: this._id
-        })
-      }));
-    }
-  }, {
-    key: "_equalId",
-    value: function _equalId(data) {
-      return !data.receiver || data.receiver === this._id;
-    }
-  }, {
-    key: "signaling",
-    value: function signaling() {
-      var _this = this;
-
-      this._send(MESSAGE.JOIN);
-
-      this._on(MESSAGE.JOIN, function (_ref2) {
-        var sender = _ref2.sender;
-
-        _this._send(MESSAGE.REQUEST_CONNECT, {
-          receiver: sender
-        });
-      });
-
-      this._on(MESSAGE.REQUEST_CONNECT, function (_ref3) {
-        return new Promise(function ($return, $error) {
-          var sender, peer;
-          sender = _ref3.sender;
-          peer = _this._createPeer(sender);
-          peer.createDataChannel(_this._id);
-          return Promise.resolve(peer.createOfferSdp()).then(function ($await_2) {
-            try {
-              _this._send(MESSAGE.SDP, {
-                receiver: peer.id,
-                sdp: $await_2
-              });
-
-              return $return();
-            } catch ($boundEx) {
-              return $error($boundEx);
-            }
-          }, $error);
-        });
-      });
-
-      this._on(MESSAGE.SDP, function (_ref4) {
-        return new Promise(function ($return, $error) {
-          var sender, sdp, peer;
-          sender = _ref4.sender, sdp = _ref4.sdp;
-          peer = _this._getPeerOrCreate(sender);
-          return Promise.resolve(peer.setRemoteDescription(sdp)).then(function ($await_3) {
-            try {
-              if (sdp.type === 'offer') {
-                return Promise.resolve(peer.createAnswerSdp()).then(function ($await_4) {
-                  try {
-                    _this._send(MESSAGE.SDP, {
-                      receiver: peer.id,
-                      sdp: $await_4
-                    });
-
-                    return $If_1.call(this);
-                  } catch ($boundEx) {
-                    return $error($boundEx);
-                  }
-                }.bind(this), $error);
-              }
-
-              function $If_1() {
-                return $return();
-              }
-
-              return $If_1.call(this);
-            } catch ($boundEx) {
-              return $error($boundEx);
-            }
-          }.bind(this), $error);
-        });
-      });
-
-      this._on(MESSAGE.CANDIDATE, function (_ref5) {
-        var sender = _ref5.sender,
-            candidate = _ref5.candidate;
-
-        var peer = _this._getPeerOrCreate(sender);
-
-        peer.addIceCandidate(candidate);
-      });
-    }
-  }, {
-    key: "_createPeer",
-    value: function _createPeer(peerId) {
-      var _this2 = this;
-
-      var peer = new Peer({
-        id: peerId,
-        config: this._config,
-        localStream: this._rtc.stream
-      });
-      peer.on('onIceCandidate', function (candidate) {
-        return _this2._send(MESSAGE.CANDIDATE, {
-          receiver: peer.id,
-          candidate: candidate
-        });
-      });
-
-      this._rtc.addPeer(peer);
-
-      return peer;
-    }
-  }, {
-    key: "_getPeerOrCreate",
-    value: function _getPeerOrCreate(peerId) {
-      var peers = this._rtc.peers;
-      return peers.has(peerId) ? peers.get(peerId) : this._createPeer(peerId);
-    }
-  }]);
-
-  return Signal;
-}();
-
-var WebRTC =
-/*#__PURE__*/
-function () {
-  function WebRTC(stream) {
-    _classCallCheck(this, WebRTC);
+    _classCallCheck(this, PeerConnector);
 
     this._emitter = new Emitter();
     this._peers = new Map();
     this._stream = stream;
+    this._config = config;
   }
 
-  _createClass(WebRTC, [{
+  _createClass(PeerConnector, [{
     key: "on",
     value: function on(eventName, listener) {
       this._emitter.on(eventName, listener);
     }
   }, {
-    key: "addPeer",
-    value: function addPeer(peer) {
+    key: "createPeer",
+    value: function createPeer(_ref2) {
       var _this = this;
 
-      this.peers.set(peer.id, peer);
+      var id = _ref2.id,
+          onIceCandidate = _ref2.onIceCandidate,
+          data = _ref2.data;
+      var peer = new Peer({
+        id: id,
+        localStream: this._stream,
+        config: this._config,
+        data: data
+      });
+      peer.on('onIceCandidate', onIceCandidate);
       peer.on('connect', function () {
         return _this._emitter.emit('connect', peer);
       });
+
+      this._peers.set(peer.id, peer);
+
+      return peer;
+    }
+  }, {
+    key: "hasPeer",
+    value: function hasPeer(id) {
+      return this._peers.has(id);
+    }
+  }, {
+    key: "getPeer",
+    value: function getPeer(id) {
+      return this._peers.get(id);
     }
   }, {
     key: "close",
@@ -661,12 +685,12 @@ function () {
     }
   }]);
 
-  return WebRTC;
+  return PeerConnector;
 }();
 
-var peerConnector = function peerConnector(_ref) {
+var index = (function (_ref) {
   return new Promise(function ($return, $error) {
-    var servers, mediaType, config, stream, rtc, signal;
+    var servers, mediaType, config, stream, peerConnector, signal;
     servers = _ref.servers, mediaType = _ref.mediaType, config = _ref.config;
 
     if (!getBrowserRTC()) {
@@ -676,13 +700,16 @@ var peerConnector = function peerConnector(_ref) {
     return Promise.resolve(mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType)).then(function ($await_2) {
       try {
         stream = $await_2;
-        rtc = new WebRTC(stream);
+        peerConnector = new PeerConnector({
+          stream: stream,
+          config: config
+        });
 
         if (servers) {
           return Promise.resolve(connect$1(servers)).then(function ($await_3) {
             try {
               signal = new Signal({
-                rtc: rtc,
+                peerConnector: peerConnector,
                 config: config,
                 webSocket: $await_3
               });
@@ -695,7 +722,7 @@ var peerConnector = function peerConnector(_ref) {
         }
 
         function $If_1() {
-          return $return(rtc);
+          return $return(peerConnector);
         }
 
         return $If_1.call(this);
@@ -704,7 +731,7 @@ var peerConnector = function peerConnector(_ref) {
       }
     }.bind(this), $error);
   });
-};
+});
 
 var getDisplayMedia = function getDisplayMedia() {
   if (navigator.getDisplayMedia) {
@@ -729,5 +756,4 @@ var getUserMedia = function getUserMedia(mediaType) {
   });
 };
 
-exports.default = peerConnector;
-exports.Peer = Peer;
+module.exports = index;
