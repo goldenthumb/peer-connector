@@ -39,7 +39,7 @@ export default class Signal {
     });
 
     this._on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
-      const peer = this._getPeerOrCreate(sender);
+      const peer = this._createPeer(sender);
       peer.createDataChannel(this._id);
       this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
     });
@@ -60,10 +60,12 @@ export default class Signal {
   }
 
   _getPeerOrCreate(id) {
-    if (this._pc.hasPeer(id)) {
-      return this._pc.getPeer(id);
-    }
+    return this._pc.hasPeer(id)
+      ? this._pc.getPeer(id)
+      : this._createPeer(id);
+  }
 
+  _createPeer(id) {
     return this._pc.createPeer({
       id,
       onIceCandidate: (candidate) => {

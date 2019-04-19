@@ -2,12 +2,11 @@ import Emitter from 'event-emitter';
 import Peer from './Peer';
 
 export default class PeerConnector {
-  constructor({ stream, config, onIceCandidate }) {
+  constructor({ stream, config }) {
     this._emitter = new Emitter();
     this._peers = new Map();
     this._stream = stream;
     this._config = config;
-    this._onIceCandidate = onIceCandidate;
   }
 
   on(eventName, listener) {
@@ -22,7 +21,7 @@ export default class PeerConnector {
     return this._peers;
   }
 
-  createPeer({ id, data, onIceCandidate = this._onIceCandidate }) {
+  createPeer({ id, onIceCandidate, data }) {
     const peer = new Peer({ id, localStream: this._stream, config: this._config, data });
 
     peer.on('onIceCandidate', onIceCandidate);

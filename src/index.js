@@ -5,13 +5,13 @@ import getBrowserRTC from 'get-browser-rtc'
 import Signal from './Signal';
 import PeerConnector from './PeerConnector';
 
-export default async ({ servers, mediaType, config, onIceCandidate }) => {
+export default async ({ servers, mediaType, config }) => {
   if (!getBrowserRTC()) {
     throw new Error('Not support getUserMedia API');
   }
 
   const stream = await (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
-  const peerConnector = new PeerConnector({ stream, config, onIceCandidate });
+  const peerConnector = new PeerConnector({ stream, config });
 
   if (servers) {
     const signal = new Signal({ peerConnector, config, webSocket: await connect(servers) });
