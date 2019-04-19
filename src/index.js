@@ -3,23 +3,22 @@ import requestScreen from './requestScreen';
 import getBrowserRTC from 'get-browser-rtc'
 
 import Signal from './Signal';
-import WebRTC from './WebRTC';
-import Peer from './Peer';
+import PeerConnector from './PeerConnector';
 
-const peerConnector = async ({ servers, mediaType, config }) => {
+export default async ({ servers, mediaType, config, onIceCandidate }) => {
   if (!getBrowserRTC()) {
     throw new Error('Not support getUserMedia API');
   }
 
   const stream = await (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
-  const rtc = new WebRTC(stream);
+  const peerConnector = new PeerConnector({ stream, config, onIceCandidate });
 
   if (servers) {
-    const signal = new Signal({ rtc, config, webSocket: await connect(servers) });
+    const signal = new Signal({ peerConnector, config, webSocket: await connect(servers) });
     signal.signaling();
   }
   
-  return rtc;
+  return peerConnector;
 };
 
 const getDisplayMedia = () => {
@@ -38,6 +37,3 @@ const getUserMedia = (mediaType) => {
     audio: mediaType.audio || true
   });
 };
-
-export default peerConnector;
-export { Peer };

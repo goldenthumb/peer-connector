@@ -1,15 +1,14 @@
 import EventEmitter from 'event-emitter';
 import randombytes from 'randombytes';
-import Peer from './Peer';
-import { CONFIG, MESSAGE } from './constants';
+
+import { MESSAGE } from './constants';
 
 export default class Signal {
-  constructor({ webSocket, config, rtc }) {
+  constructor({ webSocket, peerConnector }) {
     this._emitter = new EventEmitter();
     this._ws = webSocket;
     this._id = randombytes(20).toString('hex');
-    this._rtc = rtc;
-    this._config = Object.assign(CONFIG, config);
+    this._pc = peerConnector;
 
     webSocket.onmessage = this._onMessage.bind(this);
   }
@@ -40,7 +39,7 @@ export default class Signal {
     });
 
     this._on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
-      const peer = this._createPeer(sender);
+      const peer = this._getPeerOrCreate(sender);
       peer.createDataChannel(this._id);
       this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
     });
@@ -60,21 +59,16 @@ export default class Signal {
     });
   }
 
-  _createPeer(peerId) {
-    const peer = new Peer({
-      id: peerId,
-      config: this._config,
-      localStream: this._rtc.stream,
+  _getPeerOrCreate(id) {
+    if (this._pc.hasPeer(id)) {
+      return this._pc.getPeer(id);
+    }
+
+    return this._pc.createPeer({
+      id,
+      onIceCandidate: (candidate) => {
+        this._send(MESSAGE.CANDIDATE, { receiver: id, candidate });
+      }
     });
-
-    peer.on('onIceCandidate', candidate => this._send(MESSAGE.CANDIDATE, { receiver: peer.id, candidate }));
-    this._rtc.addPeer(peer);
-
-    return peer;
-  }
-
-  _getPeerOrCreate(peerId) {
-    const peers = this._rtc.peers;
-    return peers.has(peerId) ? peers.get(peerId) : this._createPeer(peerId);
   }
 }

@@ -3,7 +3,7 @@ import randombytes from 'randombytes';
 import { CONFIG } from './constants';
 
 export default class Peer {
-  constructor({ localStream, id = randombytes(20).toString('hex'), config = CONFIG }) {
+  constructor({ localStream, id = randombytes(20).toString('hex'), config = CONFIG, data = {} }) {
     this._id = id;
     this._pc = new RTCPeerConnection(config);
     this._dc = null;
@@ -13,12 +13,17 @@ export default class Peer {
     this._remoteStream = null;
     this._localStream = localStream;
     this._isConnected = false;
+    this._data = data;
 
     this._init();
   }
 
   get id() {
     return this._id;
+  }
+
+  get data() {
+    return this._data
   }
 
   get localStream() {
