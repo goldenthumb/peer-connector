@@ -1,3 +1,4 @@
+import 'webrtc-adapter';
 import Emitter from 'event-emitter';
 import Peer from './Peer';
 
