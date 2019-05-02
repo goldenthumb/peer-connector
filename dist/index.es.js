@@ -1,7 +1,6 @@
 import { detect } from 'detect-browser';
 import Emitter from 'event-emitter';
 import randombytes from 'randombytes';
-import 'webrtc-adapter';
 import getBrowserRTC from 'get-browser-rtc';
 
 const connect = ({ host, port, username, password, ssl = false }) => {

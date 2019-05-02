@@ -1,6 +1,6 @@
 {
   "name": "peer-connector",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "A module to accept and request WebRTC multi connections by using WebSockets.",
   "main": "./dist/index.cjs",
   "module": "./dist/index.es",
@@ -76,8 +76,7 @@
     "detect-browser": "^3.0.1",
     "event-emitter": "^0.3.5",
     "get-browser-rtc": "^1.0.2",
-    "randombytes": "^2.0.6",
-    "webrtc-adapter": "^7.2.3"
+    "randombytes": "^2.0.6"
   },
   "publishConfig": {
     "access": "public"
