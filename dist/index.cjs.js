@@ -5,6 +5,7 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 var detectBrowser = require('detect-browser');
 var Emitter = _interopDefault(require('event-emitter'));
 var randombytes = _interopDefault(require('randombytes'));
+require('webrtc-adapter');
 var getBrowserRTC = _interopDefault(require('get-browser-rtc'));
 
 var connect = function connect(_ref) {
