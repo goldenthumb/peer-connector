@@ -1,6 +1,6 @@
 import connect from './websocket';
 import requestScreen from './requestScreen';
-import getBrowserRTC from 'get-browser-rtc'
+import getBrowserRTC from 'get-browser-rtc';
 
 import Signal from './Signal';
 import PeerConnector from './PeerConnector';
@@ -10,7 +10,7 @@ export default async ({ servers, mediaType, config }) => {
     throw new Error('Not support getUserMedia API');
   }
 
-  const stream = await (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
+  const stream = await (mediaType && mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
   const peerConnector = new PeerConnector({ stream, config });
 
   if (servers) {
@@ -32,8 +32,10 @@ const getDisplayMedia = () => {
 };
 
 const getUserMedia = (mediaType) => {
+  if (!mediaType) return false;
+
   return navigator.mediaDevices.getUserMedia({
-    video: mediaType.video || true,
-    audio: mediaType.audio || true
+    video: mediaType.video,
+    audio: mediaType.audio
   });
 };

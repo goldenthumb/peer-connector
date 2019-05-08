@@ -41,6 +41,8 @@ export default class PeerConnector {
   }
 
   close() {
-    this._stream.getTracks().forEach(track => track.stop());
+    if (this._stream) {
+      this._stream.getTracks().forEach(track => track.stop());
+    }
   }
 }

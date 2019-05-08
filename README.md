@@ -33,7 +33,7 @@ var peerConnector = require('peer-connector');
 ```js
 (async () => {
   try {
-    const mediaType = { video: true, audio: true }; // default mediaType
+    const mediaType = { video: true, audio: true };
     // mediaType = { screen: true } (If you want desktop screen data)
 
     const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; // default config

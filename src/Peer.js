@@ -80,8 +80,9 @@ export default class Peer {
   }
 
   _init() {
-    const localStream = this.localStream;
-    localStream.getTracks().forEach(track => this._pc.addTrack(track, localStream));
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => this._pc.addTrack(track, this.localStream));
+    }
 
     this._pc.onicecandidate = ({ candidate }) => {
       if (candidate) this._emitter.emit('onIceCandidate', candidate);
