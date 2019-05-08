@@ -233,8 +233,9 @@ class Peer {
   }
 
   _init() {
-    const localStream = this.localStream;
-    localStream.getTracks().forEach(track => this._pc.addTrack(track, localStream));
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => this._pc.addTrack(track, this.localStream));
+    }
 
     this._pc.onicecandidate = ({ candidate }) => {
       if (candidate) this._emitter.emit('onIceCandidate', candidate);
@@ -312,7 +313,9 @@ class PeerConnector {
   }
 
   close() {
-    this._stream.getTracks().forEach(track => track.stop());
+    if (this._stream) {
+      this._stream.getTracks().forEach(track => track.stop());
+    }
   }
 }
 
@@ -321,7 +324,7 @@ var index = async ({ servers, mediaType, config }) => {
     throw new Error('Not support getUserMedia API');
   }
 
-  const stream = await (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
+  const stream = await (mediaType && mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
   const peerConnector = new PeerConnector({ stream, config });
 
   if (servers) {
@@ -343,9 +346,11 @@ const getDisplayMedia = () => {
 };
 
 const getUserMedia = (mediaType) => {
+  if (!mediaType) return false;
+
   return navigator.mediaDevices.getUserMedia({
-    video: mediaType.video || true,
-    audio: mediaType.audio || true
+    video: mediaType.video,
+    audio: mediaType.audio
   });
 };
 

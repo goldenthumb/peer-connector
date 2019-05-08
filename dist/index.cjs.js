@@ -510,10 +510,11 @@ function () {
     value: function _init() {
       var _this2 = this;
 
-      var localStream = this.localStream;
-      localStream.getTracks().forEach(function (track) {
-        return _this2._pc.addTrack(track, localStream);
-      });
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(function (track) {
+          return _this2._pc.addTrack(track, _this2.localStream);
+        });
+      }
 
       this._pc.onicecandidate = function (_ref3) {
         var candidate = _ref3.candidate;
@@ -669,9 +670,11 @@ function () {
   }, {
     key: "close",
     value: function close() {
-      this._stream.getTracks().forEach(function (track) {
-        return track.stop();
-      });
+      if (this._stream) {
+        this._stream.getTracks().forEach(function (track) {
+          return track.stop();
+        });
+      }
     }
   }, {
     key: "stream",
@@ -697,7 +700,7 @@ var index = (function (_ref) {
       return $error(new Error('Not support getUserMedia API'));
     }
 
-    return Promise.resolve(mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType)).then(function ($await_2) {
+    return Promise.resolve(mediaType && mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType)).then(function ($await_2) {
       try {
         stream = $await_2;
         peerConnector = new PeerConnector({
@@ -750,9 +753,10 @@ var getDisplayMedia = function getDisplayMedia() {
 };
 
 var getUserMedia = function getUserMedia(mediaType) {
+  if (!mediaType) return false;
   return navigator.mediaDevices.getUserMedia({
-    video: mediaType.video || true,
-    audio: mediaType.audio || true
+    video: mediaType.video,
+    audio: mediaType.audio
   });
 };
 
