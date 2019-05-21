@@ -257,6 +257,8 @@ class Peer {
         this._isConnected = false;
         this._emitter.emit('close', 'ICE connection');
       }
+
+      this._emitter.emit('updateIceState', this._pc.iceConnectionState);
     };
   }
 

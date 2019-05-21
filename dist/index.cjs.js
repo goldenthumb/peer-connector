@@ -543,6 +543,8 @@ function () {
 
           _this2._emitter.emit('close', 'ICE connection');
         }
+
+        _this2._emitter.emit('updateIceState', _this2._pc.iceConnectionState);
       };
     }
   }, {
