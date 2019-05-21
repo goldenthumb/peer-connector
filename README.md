@@ -224,6 +224,7 @@ const wsConnect = (url) => {
 | send                 | method | send data using data channel                       |
 | close                | method | peer close                                         |
 | onIceCandidate       | event  | triggers when candidates occur                     |
+| updateIceState       | event  | triggers when oniceconnectionstatechange occur     |
 | message              | event  | data received by data channel                      |
 | open                 | event  | triggers when data channel open                    |
 | close                | event  | triggers when ICE connection or data channel close |
