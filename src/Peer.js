@@ -41,6 +41,10 @@ export default class Peer {
   get remoteSdp() {
     return this._remoteSdp;
   }
+  
+  get getSenders() {
+    return this._pc.getSenders();
+  }
 
   createDataChannel(channelName) {
     if (!this._pc.createDataChannel) return;

@@ -1,4 +1,4 @@
-import peerConnector from '../../src';
+import peerConnector, { getMediaStream } from '../../src';
 
 const getEl = id => document.getElementById(id);
 const createEl = el => document.createElement(el);
@@ -22,7 +22,8 @@ $peerConnect.addEventListener('click', async () => {
   const userId = Math.random().toString(16).substr(2, 8);
 
   try {
-    const pc = await peerConnector({ mediaType });
+    const stream = await getMediaStream(mediaType);
+    const pc = await peerConnector({ stream });
     const ws = await wsConnect('ws://localhost:1234');
 
     ws.onmessage = async (message) => {

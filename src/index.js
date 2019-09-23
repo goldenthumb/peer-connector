@@ -5,12 +5,15 @@ import getBrowserRTC from 'get-browser-rtc';
 import Signal from './Signal';
 import PeerConnector from './PeerConnector';
 
-export default async ({ servers, mediaType, config }) => {
+export default async ({ servers, mediaType, stream, config }) => {
   if (!getBrowserRTC()) {
     throw new Error('Not support getUserMedia API');
   }
-
-  const stream = await (mediaType && mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
+  
+  if (!stream) {
+    stream = await getMediaStream(mediaType);
+  }
+  
   const peerConnector = new PeerConnector({ stream, config });
 
   if (servers) {
@@ -19,6 +22,10 @@ export default async ({ servers, mediaType, config }) => {
   }
   
   return peerConnector;
+};
+
+export const getMediaStream = (mediaType = {}) => {
+  return mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType);
 };
 
 const getDisplayMedia = () => {
@@ -31,11 +38,7 @@ const getDisplayMedia = () => {
   }
 };
 
-const getUserMedia = (mediaType) => {
-  if (!mediaType) return false;
-
-  return navigator.mediaDevices.getUserMedia({
-    video: mediaType.video,
-    audio: mediaType.audio
-  });
+const getUserMedia = ({ video, audio }) => {
+  if (!video && !audio) return null;
+  return navigator.mediaDevices.getUserMedia({ video, audio });
 };

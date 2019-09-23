@@ -1,4 +1,4 @@
-import peerConnector from '../../src';
+import peerConnector, { getMediaStream } from '../../src';
 
 const getEl = id => document.getElementById(id);
 const createEl = el => document.createElement(el);
@@ -14,11 +14,10 @@ $peerConnect.addEventListener('click', async () => {
   const servers = [{ host: 'localhost', port: 1234 }];
 
   try {
-    const pc = await peerConnector({ servers, mediaType });
-
-    if (pc.stream) {
-      $local.srcObject = pc.stream;
-    }
+    const stream = await getMediaStream(mediaType);
+    const pc = await peerConnector({ servers, stream });
+  
+    if (stream) $local.srcObject = stream;
 
     pc.on('connect', (peer) => {
       console.log('peer connected', peer);
