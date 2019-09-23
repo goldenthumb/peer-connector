@@ -614,7 +614,7 @@ function () {
       return this._remoteSdp;
     }
   }, {
-    key: "getSenders",
+    key: "senders",
     get: function get() {
       return this._pc.getSenders();
     }
