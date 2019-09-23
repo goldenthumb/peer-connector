@@ -42,7 +42,7 @@ export default class Peer {
     return this._remoteSdp;
   }
   
-  get getSenders() {
+  get senders() {
     return this._pc.getSenders();
   }
 
