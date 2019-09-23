@@ -1,5 +1,7 @@
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var detectBrowser = require('detect-browser');
@@ -611,6 +613,11 @@ function () {
     get: function get() {
       return this._remoteSdp;
     }
+  }, {
+    key: "getSenders",
+    get: function get() {
+      return this._pc.getSenders();
+    }
   }]);
 
   return Peer;
@@ -695,48 +702,60 @@ function () {
 
 var index = (function (_ref) {
   return new Promise(function ($return, $error) {
-    var servers, mediaType, config, stream, peerConnector, signal;
-    servers = _ref.servers, mediaType = _ref.mediaType, config = _ref.config;
+    var servers, mediaType, stream, config, peerConnector, signal;
+    servers = _ref.servers, mediaType = _ref.mediaType, stream = _ref.stream, config = _ref.config;
 
     if (!getBrowserRTC()) {
       return $error(new Error('Not support getUserMedia API'));
     }
 
-    return Promise.resolve(mediaType && mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType)).then(function ($await_2) {
-      try {
-        stream = $await_2;
-        peerConnector = new PeerConnector({
-          stream: stream,
-          config: config
-        });
-
-        if (servers) {
-          return Promise.resolve(connect$1(servers)).then(function ($await_3) {
-            try {
-              signal = new Signal({
-                peerConnector: peerConnector,
-                config: config,
-                webSocket: $await_3
-              });
-              signal.signaling();
-              return $If_1.call(this);
-            } catch ($boundEx) {
-              return $error($boundEx);
-            }
-          }.bind(this), $error);
+    if (!stream) {
+      return Promise.resolve(getMediaStream(mediaType)).then(function ($await_3) {
+        try {
+          stream = $await_3;
+          return $If_1.call(this);
+        } catch ($boundEx) {
+          return $error($boundEx);
         }
+      }.bind(this), $error);
+    }
 
-        function $If_1() {
-          return $return(peerConnector);
-        }
+    function $If_1() {
+      peerConnector = new PeerConnector({
+        stream: stream,
+        config: config
+      });
 
-        return $If_1.call(this);
-      } catch ($boundEx) {
-        return $error($boundEx);
+      if (servers) {
+        return Promise.resolve(connect$1(servers)).then(function ($await_4) {
+          try {
+            signal = new Signal({
+              peerConnector: peerConnector,
+              config: config,
+              webSocket: $await_4
+            });
+            signal.signaling();
+            return $If_2.call(this);
+          } catch ($boundEx) {
+            return $error($boundEx);
+          }
+        }.bind(this), $error);
       }
-    }.bind(this), $error);
+
+      function $If_2() {
+        return $return(peerConnector);
+      }
+
+      return $If_2.call(this);
+    }
+
+    return $If_1.call(this);
   });
 });
+var getMediaStream = function getMediaStream() {
+  var mediaType = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+  return mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType);
+};
 
 var getDisplayMedia = function getDisplayMedia() {
   if (navigator.getDisplayMedia) {
@@ -754,12 +773,15 @@ var getDisplayMedia = function getDisplayMedia() {
   }
 };
 
-var getUserMedia = function getUserMedia(mediaType) {
-  if (!mediaType) return false;
+var getUserMedia = function getUserMedia(_ref2) {
+  var video = _ref2.video,
+      audio = _ref2.audio;
+  if (!video && !audio) return null;
   return navigator.mediaDevices.getUserMedia({
-    video: mediaType.video,
-    audio: mediaType.audio
+    video: video,
+    audio: audio
   });
 };
 
-module.exports = index;
+exports.default = index;
+exports.getMediaStream = getMediaStream;

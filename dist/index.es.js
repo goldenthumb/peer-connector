@@ -194,6 +194,10 @@ class Peer {
   get remoteSdp() {
     return this._remoteSdp;
   }
+  
+  get getSenders() {
+    return this._pc.getSenders();
+  }
 
   createDataChannel(channelName) {
     if (!this._pc.createDataChannel) return;
@@ -321,12 +325,15 @@ class PeerConnector {
   }
 }
 
-var index = async ({ servers, mediaType, config }) => {
+var index = async ({ servers, mediaType, stream, config }) => {
   if (!getBrowserRTC()) {
     throw new Error('Not support getUserMedia API');
   }
-
-  const stream = await (mediaType && mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
+  
+  if (!stream) {
+    stream = await getMediaStream(mediaType);
+  }
+  
   const peerConnector = new PeerConnector({ stream, config });
 
   if (servers) {
@@ -335,6 +342,10 @@ var index = async ({ servers, mediaType, config }) => {
   }
   
   return peerConnector;
+};
+
+const getMediaStream = (mediaType = {}) => {
+  return mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType);
 };
 
 const getDisplayMedia = () => {
@@ -347,13 +358,10 @@ const getDisplayMedia = () => {
   }
 };
 
-const getUserMedia = (mediaType) => {
-  if (!mediaType) return false;
-
-  return navigator.mediaDevices.getUserMedia({
-    video: mediaType.video,
-    audio: mediaType.audio
-  });
+const getUserMedia = ({ video, audio }) => {
+  if (!video && !audio) return null;
+  return navigator.mediaDevices.getUserMedia({ video, audio });
 };
 
 export default index;
+export { getMediaStream };
