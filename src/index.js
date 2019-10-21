@@ -10,7 +10,7 @@ export default async ({ servers, mediaType, stream, config }) => {
     throw new Error('Not support getUserMedia API');
   }
   
-  if (!stream) {
+  if (!stream && mediaType) {
     stream = await getMediaStream(mediaType);
   }
   
