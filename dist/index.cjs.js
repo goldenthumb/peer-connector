@@ -709,7 +709,7 @@ var index = (function (_ref) {
       return $error(new Error('Not support getUserMedia API'));
     }
 
-    if (!stream) {
+    if (!stream && mediaType) {
       return Promise.resolve(getMediaStream(mediaType)).then(function ($await_3) {
         try {
           stream = $await_3;
