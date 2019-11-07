@@ -7,6 +7,7 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 var detectBrowser = require('detect-browser');
 var Emitter = _interopDefault(require('event-emitter'));
 var randombytes = _interopDefault(require('randombytes'));
+var allOff = _interopDefault(require('event-emitter/all-off'));
 var getBrowserRTC = _interopDefault(require('get-browser-rtc'));
 
 var connect = function connect(_ref) {
@@ -472,6 +473,11 @@ function () {
       this._emitter.on(eventName, listener);
     }
   }, {
+    key: "once",
+    value: function once(eventName, listener) {
+      this._emitter.once(eventName, listener);
+    }
+  }, {
     key: "send",
     value: function send(data) {
       this._dc && this._dc.send(data);
@@ -480,6 +486,8 @@ function () {
     key: "close",
     value: function close() {
       this._pc.close();
+
+      allOff(this._emitter);
     }
   }, {
     key: "_setDataChannel",

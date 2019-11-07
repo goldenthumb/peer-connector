@@ -1,6 +1,7 @@
 import { detect } from 'detect-browser';
 import Emitter from 'event-emitter';
 import randombytes from 'randombytes';
+import allOff from 'event-emitter/all-off';
 import getBrowserRTC from 'get-browser-rtc';
 
 const connect = ({ host, port, username, password, ssl = false }) => {
@@ -194,7 +195,7 @@ class Peer {
   get remoteSdp() {
     return this._remoteSdp;
   }
-  
+
   get senders() {
     return this._pc.getSenders();
   }
@@ -216,12 +217,17 @@ class Peer {
     this._emitter.on(eventName, listener);
   }
 
+  once(eventName, listener) {
+    this._emitter.once(eventName, listener);
+  }
+
   send(data) {
     this._dc && this._dc.send(data);
   }
 
   close() {
     this._pc.close();
+    allOff(this._emitter);
   }
 
   _setDataChannel(dc) {
