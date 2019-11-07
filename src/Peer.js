@@ -1,4 +1,5 @@
 import Emitter from 'event-emitter';
+import allOff from 'event-emitter/all-off';
 import randombytes from 'randombytes';
 import { CONFIG } from './constants';
 
@@ -41,7 +42,7 @@ export default class Peer {
   get remoteSdp() {
     return this._remoteSdp;
   }
-  
+
   get senders() {
     return this._pc.getSenders();
   }
@@ -63,12 +64,17 @@ export default class Peer {
     this._emitter.on(eventName, listener);
   }
 
+  once(eventName, listener) {
+    this._emitter.once(eventName, listener);
+  }
+
   send(data) {
     this._dc && this._dc.send(data);
   }
 
   close() {
     this._pc.close();
+    allOff(this._emitter);
   }
 
   _setDataChannel(dc) {
