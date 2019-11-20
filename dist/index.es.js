@@ -105,7 +105,7 @@ class Signal {
   }
 
   _send(event, data = {}) {
-    this._ws.send(JSON.stringify({ event, data: { ...data, sender: this._id } }));
+    this._ws.send(JSON.stringify({ event, data: Object.assign({}, data, { sender: this._id }) }));
   }
 
   _equalId(data) {
