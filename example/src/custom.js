@@ -121,8 +121,8 @@ $peerConnect.addEventListener('click', async () => {
         peer.send('data channel connected');
       });
 
-      peer.on('message', (data) => {
-        console.log('message', data);
+      peer.on('data', (data) => {
+        console.log('data (data channel) : ', data);
 
         const p = createEl('p');
         p.innerHTML = data;

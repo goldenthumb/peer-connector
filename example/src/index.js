@@ -16,7 +16,7 @@ $peerConnect.addEventListener('click', async () => {
   try {
     const stream = await getMediaStream(mediaType);
     const pc = await peerConnector({ servers, stream });
-  
+
     if (stream) $local.srcObject = stream;
 
     pc.on('connect', (peer) => {
@@ -34,8 +34,8 @@ $peerConnect.addEventListener('click', async () => {
         peer.send('data channel connected');
       });
 
-      peer.on('message', (data) => {
-        console.log('message', data);
+      peer.on('data', (data) => {
+        console.log('data (data channel) : ', data);
 
         const p = createEl('p');
         p.innerHTML = data;
