@@ -498,7 +498,7 @@ function () {
 
       dc.onmessage = function (_ref2) {
         var data = _ref2.data;
-        return _this._emitter.emit('message', data);
+        return _this._emitter.emit('data', data);
       };
 
       dc.onclose = function () {

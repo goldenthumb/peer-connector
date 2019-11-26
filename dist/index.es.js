@@ -233,7 +233,7 @@ class Peer {
   _setDataChannel(dc) {
     this._dc = dc;
 
-    dc.onmessage = ({ data }) => this._emitter.emit('message', data);
+    dc.onmessage = ({ data }) => this._emitter.emit('data', data);
     dc.onclose = () => this._emitter.emit('close', 'datachannel');
     dc.onopen = () => this._emitter.emit('open');
     dc.onerror = (error) => {
