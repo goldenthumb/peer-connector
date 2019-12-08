@@ -24,7 +24,10 @@ export default class Signal {
     }
     
     _send(event, data = {}) {
-        this._ws.send(JSON.stringify({ event, data: Object.assign({}, data, { sender: this._id }) }));
+        this._ws.send(JSON.stringify({
+            event,
+            data: Object.assign({}, data, { sender: this._id })
+        }));
     }
     
     _equalId(data) {
@@ -45,7 +48,7 @@ export default class Signal {
         });
         
         this._on(MESSAGE.SDP, async ({ sender, sdp }) => {
-            const peer = this._getPeerOrCreate(sender);
+            const peer = this._pc.hasPeer(sender) ? this._pc.getPeer(sender) : this._createPeer(sender);
             await peer.setRemoteDescription(sdp);
             
             if (sdp.type === 'offer') {
@@ -54,15 +57,9 @@ export default class Signal {
         });
         
         this._on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
-            const peer = this._getPeerOrCreate(sender);
+            const peer = this._pc.hasPeer(sender) ? this._pc.getPeer(sender) : this._createPeer(sender);
             peer.addIceCandidate(candidate);
         });
-    }
-    
-    _getPeerOrCreate(id) {
-        return this._pc.hasPeer(id)
-            ? this._pc.getPeer(id)
-            : this._createPeer(id);
     }
     
     _createPeer(id) {

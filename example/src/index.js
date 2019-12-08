@@ -15,7 +15,7 @@ $peerConnect.addEventListener('click', async () => {
     
     try {
         const stream = await getMediaStream(mediaType);
-        const pc = await peerConnector({ servers, stream });
+        const pc = await peerConnector({ stream, servers });
         
         if (stream) $local.srcObject = stream;
         

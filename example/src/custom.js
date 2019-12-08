@@ -8,14 +8,6 @@ const $videoGroup = getEl('video-group');
 const $messages = getEl('messages');
 const $peerConnect = getEl('connect');
 
-const wsConnect = (url) => {
-    return new Promise((resolve, reject) => {
-        const webSocket = new WebSocket(url);
-        webSocket.onopen = () => resolve(webSocket);
-        webSocket.onerror = () => reject(new Error('connect failed.'));
-    });
-};
-
 $peerConnect.addEventListener('click', async () => {
     const type = document.querySelector('input[name="media-type"]:checked').value;
     const mediaType = type === 'screen' ? { screen: true } : { video: true, audio: true };
@@ -58,7 +50,7 @@ $peerConnect.addEventListener('click', async () => {
             
             if (event === 'sdp') {
                 const { sender, sdp } = data;
-                const peer = getPeerOrCreate(sender);
+                const peer = pc.hasPeer(sender) ? pc.getPeer(sender) : createPeer(sender);
                 await peer.setRemoteDescription(sdp);
                 
                 if (sdp.type === 'offer') {
@@ -75,36 +67,30 @@ $peerConnect.addEventListener('click', async () => {
             
             if (event === 'candidate') {
                 const { sender, candidate } = data;
-                const peer = getPeerOrCreate(sender);
+                const peer = pc.hasPeer(sender) ? pc.getPeer(sender) : createPeer(sender);
                 peer.addIceCandidate(candidate);
             }
         };
         
-        const getPeerOrCreate = (id) => {
-            return pc.hasPeer(id)
-                ? pc.getPeer(id)
-                : createPeer(id);
-        };
-        
-        const createPeer = (id) => pc.createPeer({
-            id,
-            onIceCandidate: (candidate) => {
-                ws.send(JSON.stringify({
-                    event: 'candidate',
-                    data: {
-                        sender: userId,
-                        receiver: id,
-                        candidate
-                    }
-                }));
-            }
-        });
+        function createPeer(id) {
+            return pc.createPeer({
+                id,
+                onIceCandidate: (candidate) => {
+                    ws.send(JSON.stringify({
+                        event: 'candidate',
+                        data: {
+                            sender: userId,
+                            receiver: id,
+                            candidate
+                        }
+                    }));
+                }
+            });
+        }
         
         ws.send(JSON.stringify({ event: 'join', data: { sender: userId } }));
         
-        if (pc.stream) {
-            $local.srcObject = pc.stream;
-        }
+        if (stream) $local.srcObject = stream;
         
         pc.on('connect', (peer) => {
             console.log('peer connected', peer);
@@ -133,3 +119,11 @@ $peerConnect.addEventListener('click', async () => {
         alert(e);
     }
 });
+
+function wsConnect(url) {
+    return new Promise((resolve, reject) => {
+        const webSocket = new WebSocket(url);
+        webSocket.onopen = () => resolve(webSocket);
+        webSocket.onerror = () => reject(new Error('connect failed.'));
+    });
+}

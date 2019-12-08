@@ -13,7 +13,7 @@ export default async servers => {
         try {
             return await connect(server);
         } catch (error) {
-        
+            continue;
         }
     }
 };
