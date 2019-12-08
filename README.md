@@ -1,11 +1,14 @@
 # peer-connector [![npm](https://img.shields.io/npm/v/peer-connector.svg)](https://www.npmjs.com/package/peer-connector)
 A module to accept and request WebRTC multi connections by using WebSockets. <br>
 Simple WebRTC video/voice/screen and data channels.
+<br />
+<br />
 
 ### Installing
 ```bash
 $ npm install peer-connector
 ```
+<br />
 <br />
 
 ### Demo(sample test)
@@ -18,6 +21,9 @@ $ npm run dev
 
 Now open this URL in your browser: http://localhost:3000/
 ```
+<br />
+<br />
+<br />
 <br />
 
 ## Usage (basic)
@@ -32,47 +38,33 @@ var peerConnector = require('peer-connector');
 
 ```js
 (async () => {
-  try {
-    const mediaType = { video: true, audio: true };
-    // mediaType = { screen: true } (If you want desktop screen data)
-
-    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; // default config
-    const servers = [
-      {
-        host,      // string required
-        port,      // number required
-        ssl,       // bool optional(default false)
-        username,  // string optional
-        password,  // string optional
-      },
-      ...
-    ];
-
-    const pc = await peerConnector({
-      servers,     // optional
-      mediaType,   // optional
-      config,      // optional
-    });
-
-    console.log(pc.stream); // local stream;
+    // mediaType: video, audio, screen
+    const stream = await getMediaStream(mediaType); 
+    const servers = [{ host: 'localhost', port: 1234, ssl: false }];
+    const pc = await peerConnector({ stream, servers });
 
     pc.on('connect', (peer) => {
-      // peer is generated each time WebRTC is connected.
+        // peer is generated each time WebRTC is connected.
+        console.log('stream', peer.remoteStream);
       
-      peer.on('open', () => {
-        console.log('data channel open');
-        peer.send('data channel connected');
-      });
+        peer.on('open', () => {
+            console.log('data channel open');
+            peer.send('data channel connected');
+        });
 
-      peer.on('message', (data) => {
-        console.log('message', data);
-      });
+        peer.on('message', (data) => {
+            console.log('message', data);
+        });
+
+        peer.on('close', (data) => {
+            console.log('close', data);
+        });
     });
-  } catch (e) {
-    console.log(e);
-  }
 })();
 ```
+<br />
+<br />
+<br />
 <br />
 
 ## Usage (custom signal)
@@ -87,114 +79,110 @@ Now open this URL in your browser: http://localhost:3000/
 ```js
 import peerConnector from 'peer-connector';
 
-const wsConnect = (url) => {
-  return new Promise((resolve, reject) => {
-    const webSocket = new WebSocket(url);
-    webSocket.onopen = () => resolve(webSocket);
-    webSocket.onerror = () => reject(new Error('connect failed.'));
-  });
-};
-
 (async () => {
-  try {
-    const pc = await peerConnector({ mediaType });
+    const stream = await getMediaStream(mediaType);
+    const pc = await peerConnector({ stream });
     const ws = await wsConnect('ws://localhost:1234');
-
+ 
     ws.onmessage = async (message) => {
-      if (!message) return;
+        const { event, data } = JSON.parse(message.data);
 
-      const { event, data } = JSON.parse(message.data);
-
-      if (data.receiver && data.receiver !== userId) return;
-
-      if (event === 'join') {
-        ws.send(JSON.stringify({
-          event: 'request-peer',
-          data: {
-            sender: userId,
-            receiver: data.sender
-          }
-        }));
-      }
-
-      if (event === 'request-peer') {
-        const peer = createPeer(data.sender);
-        peer.createDataChannel(userId);
-        ws.send(JSON.stringify({
-          event: 'sdp',
-          data: {
-            sender: userId,
-            receiver: peer.id,
-            sdp: await peer.createOfferSdp()
-          }
-        }));
-      }
-
-      if (event === 'sdp') {
-        const { sender, sdp } = data;
-        const peer = getPeerOrCreate(sender);
-        await peer.setRemoteDescription(sdp);
-
-        if (sdp.type === 'offer') {
-          ws.send(JSON.stringify({
-            event: 'sdp',
-            data: {
-              sender: userId,
-              receiver: peer.id,
-              sdp: await peer.createAnswerSdp()
-            }
-          }));
+        if (data.receiver && data.receiver !== userId) return;
+        
+        if (event === 'join') {
+            ws.send(JSON.stringify({
+                event: 'request-peer',
+                data: {
+                    sender: userId,
+                    receiver: data.sender
+                }
+            }));
         }
-      }
-
-      if (event === 'candidate') {
-        const { sender, candidate } = data;
-        const peer = getPeerOrCreate(sender);
-        peer.addIceCandidate(candidate);
-      }
+        
+        if (event === 'request-peer') {
+            const peer = createPeer(data.sender);
+            peer.createDataChannel(userId);
+            ws.send(JSON.stringify({
+                event: 'sdp',
+                data: {
+                  sender: userId,
+                  receiver: peer.id,
+                  sdp: await peer.createOfferSdp()
+                }
+            }));
+        }
+        
+        if (event === 'sdp') {
+            const { sender, sdp } = data;
+            const peer = pc.hasPeer(sender) ? pc.getPeer(sender) : createPeer(sender);
+            await peer.setRemoteDescription(sdp);
+            
+            if (sdp.type === 'offer') {
+                ws.send(JSON.stringify({
+                  event: 'sdp',
+                  data: {
+                    sender: userId,
+                    receiver: peer.id,
+                    sdp: await peer.createAnswerSdp()
+                  }
+                }));
+            }
+        }
+        
+        if (event === 'candidate') {
+            const { sender, candidate } = data;
+            const peer = pc.hasPeer(sender) ? pc.getPeer(sender) : createPeer(sender);
+            peer.addIceCandidate(candidate);
+        }
     };
-
-    const getPeerOrCreate = (id) => {
-      return pc.hasPeer(id)
-        ? pc.getPeer(id)
-        : createPeer(id);
-    };
-
-    const createPeer = (id) => pc.createPeer({
-      id,
-      onIceCandidate: (candidate) => {
-        ws.send(JSON.stringify({
-          event: 'candidate',
-          data: {
-            sender: userId,
-            receiver: id,
-            candidate
-          }
-        }));
-      }
-    });
-
+    
+    function createPeer(id) {
+        return pc.createPeer({
+            id,
+            onIceCandidate: (candidate) => {
+                ws.send(JSON.stringify({
+                    event: 'candidate',
+                    data: {
+                       sender: userId,
+                       receiver: id,
+                       candidate
+                    }
+                }));
+            }
+       })
+    }
+  
     ws.send(JSON.stringify({ event: 'join', data: { sender: userId } }));
 
-    console.log(pc.stream); // local stream;
-
     pc.on('connect', (peer) => {
-      // peer is generated each time WebRTC is connected.
+        // peer is generated each time WebRTC is connected.
+        console.log('stream', peer.remoteStream);
       
-      peer.on('open', () => {
-        console.log('data channel open');
-        peer.send('data channel connected');
-      });
+        peer.on('open', () => {
+            console.log('data channel open');
+            peer.send('data channel connected');
+        });
 
-      peer.on('message', (data) => {
-        console.log('message', data);
-      });
+        peer.on('message', (data) => {
+            console.log('message', data);
+        });
+
+        peer.on('close', (data) => {
+            console.log('close', data);
+        });
     });
-  } catch (e) {
-    console.log(e);
-  }
 })();
+
+function wsConnect(url) {
+    return new Promise((resolve, reject) => {
+        const webSocket = new WebSocket(url);
+        webSocket.onopen = () => resolve(webSocket);
+        webSocket.onerror = () => reject(new Error('connect failed.'));
+    });
+}
 ```
+<br />
+<br />
 <br />
 
 ### peerConnector
@@ -206,6 +194,8 @@ const wsConnect = (url) => {
 | addPeer | method | add peer                     |
 | close   | method | close media local stream     |
 
+<br />
+<br />
 <br />
 
 ### peer
@@ -231,8 +221,11 @@ const wsConnect = (url) => {
 | error                | event  | triggers when data channel error                   |
 
 <br />
+<br />
+<br />
 
 ### License
 MIT
+
 <br />
 
