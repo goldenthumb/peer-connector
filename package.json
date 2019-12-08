@@ -1,84 +1,84 @@
 {
-  "name": "peer-connector",
-  "version": "0.7.0",
-  "description": "A module to accept and request WebRTC multi connections by using WebSockets.",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.es",
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "dev": "node example/wsServer & webpack-dev-server --config example/webpack/devserver.js --hot --inline",
-    "dev-custom": "node example/wsServer & webpack-dev-server --config example/webpack/devserver.js --hot --inline --env.custom",
-    "prepublishOnly": "npm run build",
-    "build": "npm run build-umd && npm run build-cjs && npm run build-es",
-    "build-cjs": "bili --format cjs --filename index[suffix].js",
-    "build-es": "bili --format es --filename index[suffix].js --no-js",
-    "build-umd": "poi ./src/index.js --prod --format umd --out-dir dist --module-name PeerConnector"
-  },
-  "poi": {
-    "output": {
-      "fileNames": {
-        "js": "peerConnector.js"
-      }
+    "name": "peer-connector",
+    "version": "0.7.1",
+    "description": "A module to accept and request WebRTC multi connections by using WebSockets.",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.es",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "start": "node example/wsServer & webpack-dev-server --config example/webpack/devserver.js --hot --inline",
+        "start-custom": "node example/wsServer & webpack-dev-server --config example/webpack/devserver.js --hot --inline --env.custom",
+        "prepublishOnly": "npm run build",
+        "build": "npm run build-umd && npm run build-cjs && npm run build-es",
+        "build-cjs": "bili --format cjs --filename index[suffix].js",
+        "build-es": "bili --format es --filename index[suffix].js --no-js",
+        "build-umd": "poi ./src/index.js --prod --format umd --out-dir dist --module-name PeerConnector"
+    },
+    "poi": {
+        "output": {
+            "fileNames": {
+                "js": "peerConnector.js"
+            }
+        }
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/goldenthumb/peer-connector.git"
+    },
+    "keywords": [
+        "peer connector",
+        "peer-connector",
+        "data channel",
+        "data channel stream",
+        "data channels",
+        "p2p",
+        "peer",
+        "peers",
+        "peer-to-peer",
+        "multi conection",
+        "peer multi conection",
+        "stream",
+        "video",
+        "voice",
+        "screen",
+        "webrtc",
+        "webrtc sample",
+        "webrtc example",
+        "webrtc stream",
+        "screen desktop",
+        "user media",
+        "display media"
+    ],
+    "author": "goldenthumb",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/goldenthumb/peer-connector/issues"
+    },
+    "homepage": "https://github.com/goldenthumb/peer-connector#readme",
+    "devDependencies": {
+        "babel-core": "^6.26.3",
+        "babel-loader": "^7.1.5",
+        "babel-plugin-transform-object-rest-spread": "^6.26.0",
+        "babel-preset-env": "^1.7.0",
+        "bili": "^3.1.2",
+        "express": "^4.16.4",
+        "http": "0.0.0",
+        "poi": "^12.6.6",
+        "url": "^0.11.0",
+        "webpack": "^4.17.1",
+        "webpack-cli": "^3.1.0",
+        "webpack-dev-server": "^3.1.5",
+        "ws": "^6.1.0"
+    },
+    "dependencies": {
+        "detect-browser": "^3.0.1",
+        "event-emitter": "^0.3.5",
+        "get-browser-rtc": "^1.0.2",
+        "randombytes": "^2.0.6"
+    },
+    "publishConfig": {
+        "access": "public"
     }
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/goldenthumb/peer-connector.git"
-  },
-  "keywords": [
-    "peer connector",
-    "peer-connector",
-    "data channel",
-    "data channel stream",
-    "data channels",
-    "p2p",
-    "peer",
-    "peers",
-    "peer-to-peer",
-    "multi conection",
-    "peer multi conection",
-    "stream",
-    "video",
-    "voice",
-    "screen",
-    "webrtc",
-    "webrtc sample",
-    "webrtc example",
-    "webrtc stream",
-    "screen desktop",
-    "user media",
-    "display media"
-  ],
-  "author": "goldenthumb",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/goldenthumb/peer-connector/issues"
-  },
-  "homepage": "https://github.com/goldenthumb/peer-connector#readme",
-  "devDependencies": {
-    "babel-core": "^6.26.3",
-    "babel-loader": "^7.1.5",
-    "babel-plugin-transform-object-rest-spread": "^6.26.0",
-    "babel-preset-env": "^1.7.0",
-    "bili": "^3.1.2",
-    "express": "^4.16.4",
-    "http": "0.0.0",
-    "poi": "^12.6.6",
-    "url": "^0.11.0",
-    "webpack": "^4.17.1",
-    "webpack-cli": "^3.1.0",
-    "webpack-dev-server": "^3.1.5",
-    "ws": "^6.1.0"
-  },
-  "dependencies": {
-    "detect-browser": "^3.0.1",
-    "event-emitter": "^0.3.5",
-    "get-browser-rtc": "^1.0.2",
-    "randombytes": "^2.0.6"
-  },
-  "publishConfig": {
-    "access": "public"
-  }
 }

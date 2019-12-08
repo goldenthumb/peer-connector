@@ -358,7 +358,7 @@ function () {
         return new Promise(function ($return, $error) {
           var sender, sdp, peer;
           sender = _ref4.sender, sdp = _ref4.sdp;
-          peer = _this._getPeerOrCreate(sender);
+          peer = _this._pc.hasPeer(sender) ? _this._pc.getPeer(sender) : _this._createPeer(sender);
           return Promise.resolve(peer.setRemoteDescription(sdp)).then(function ($await_3) {
             try {
               if (sdp.type === 'offer') {
@@ -391,16 +391,9 @@ function () {
       this._on(MESSAGE.CANDIDATE, function (_ref5) {
         var sender = _ref5.sender,
             candidate = _ref5.candidate;
-
-        var peer = _this._getPeerOrCreate(sender);
-
+        var peer = _this._pc.hasPeer(sender) ? _this._pc.getPeer(sender) : _this._createPeer(sender);
         peer.addIceCandidate(candidate);
       });
-    }
-  }, {
-    key: "_getPeerOrCreate",
-    value: function _getPeerOrCreate(id) {
-      return this._pc.hasPeer(id) ? this._pc.getPeer(id) : this._createPeer(id);
     }
   }, {
     key: "_createPeer",
