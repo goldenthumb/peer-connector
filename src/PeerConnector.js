@@ -1,4 +1,5 @@
 import Emitter from 'event-emitter';
+import allOff from 'event-emitter/all-off';
 import Peer from './Peer';
 
 export default class PeerConnector {
@@ -11,6 +12,14 @@ export default class PeerConnector {
 
     on(eventName, listener) {
         this._emitter.on(eventName, listener);
+    }
+
+    off(eventName, listener) {
+        this._emitter.off(eventName, listener);
+    }
+
+    allOff() {
+        allOff(this._emitter);
     }
 
     get stream() {
@@ -44,5 +53,7 @@ export default class PeerConnector {
         if (this._stream) {
             this._stream.getTracks().forEach((track) => track.stop());
         }
+
+        this.allOff();
     }
 }

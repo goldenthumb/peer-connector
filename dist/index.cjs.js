@@ -7,7 +7,7 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 var detectBrowser = require('detect-browser');
 var Emitter = _interopDefault(require('event-emitter'));
 var randombytes = _interopDefault(require('randombytes'));
-var allOff = _interopDefault(require('event-emitter/all-off'));
+var _allOff = _interopDefault(require('event-emitter/all-off'));
 var getBrowserRTC = _interopDefault(require('get-browser-rtc'));
 
 var connect = function connect(_ref) {
@@ -29,7 +29,8 @@ var connect = function connect(_ref) {
       return reject(new Error('connect failed.'));
     };
   });
-};
+}; // eslint-disable-next-line consistent-return
+
 
 var connect$1 = (function (servers) {
   return new Promise(function ($return, $error) {
@@ -257,6 +258,44 @@ function _createClass(Constructor, protoProps, staticProps) {
   return Constructor;
 }
 
+function _slicedToArray(arr, i) {
+  return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest();
+}
+
+function _arrayWithHoles(arr) {
+  if (Array.isArray(arr)) return arr;
+}
+
+function _iterableToArrayLimit(arr, i) {
+  var _arr = [];
+  var _n = true;
+  var _d = false;
+  var _e = undefined;
+
+  try {
+    for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+      _arr.push(_s.value);
+
+      if (i && _arr.length === i) break;
+    }
+  } catch (err) {
+    _d = true;
+    _e = err;
+  } finally {
+    try {
+      if (!_n && _i["return"] != null) _i["return"]();
+    } finally {
+      if (_d) throw _e;
+    }
+  }
+
+  return _arr;
+}
+
+function _nonIterableRest() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance");
+}
+
 var CONFIG = {
   iceServers: [{
     urls: 'stun:stun.l.google.com:19302'
@@ -453,7 +492,8 @@ function () {
   }, {
     key: "setRemoteDescription",
     value: function setRemoteDescription(sdp) {
-      return this._pc.setRemoteDescription(new RTCSessionDescription(this._remoteSdp = sdp));
+      this._remoteSdp = sdp;
+      return this._pc.setRemoteDescription(new RTCSessionDescription(this._remoteSdp));
     }
   }, {
     key: "addIceCandidate",
@@ -473,14 +513,14 @@ function () {
   }, {
     key: "send",
     value: function send(data) {
-      this._dc && this._dc.send(data);
+      if (this._dc) this._dc.send(data);
     }
   }, {
     key: "close",
     value: function close() {
       this._pc.close();
 
-      allOff(this._emitter);
+      _allOff(this._emitter);
     }
   }, {
     key: "_setDataChannel",
@@ -526,7 +566,12 @@ function () {
 
       this._pc.ontrack = function (_ref4) {
         var streams = _ref4.streams;
-        if (!_this2._remoteStream) _this2._emitter.emit('stream', _this2._remoteStream = streams[0]);
+
+        var _streams = _slicedToArray(streams, 1),
+            stream = _streams[0];
+
+        _this2._remoteStream = stream;
+        if (!_this2._remoteStream) _this2._emitter.emit('stream', _this2._remoteStream);
       };
 
       this._pc.ondatachannel = function (_ref5) {
@@ -645,6 +690,16 @@ function () {
       this._emitter.on(eventName, listener);
     }
   }, {
+    key: "off",
+    value: function off(eventName, listener) {
+      this._emitter.off(eventName, listener);
+    }
+  }, {
+    key: "allOff",
+    value: function allOff() {
+      _allOff(this._emitter);
+    }
+  }, {
     key: "createPeer",
     value: function createPeer(_ref2) {
       var _this = this;
@@ -685,6 +740,8 @@ function () {
           return track.stop();
         });
       }
+
+      this.allOff();
     }
   }, {
     key: "stream",
@@ -763,15 +820,17 @@ var getDisplayMedia = function getDisplayMedia() {
     return navigator.getDisplayMedia({
       video: true
     });
-  } else if (navigator.mediaDevices.getDisplayMedia) {
+  }
+
+  if (navigator.mediaDevices.getDisplayMedia) {
     return navigator.mediaDevices.getDisplayMedia({
       video: true
     });
-  } else {
-    return navigator.mediaDevices.getUserMedia({
-      video: requestScreen()
-    });
   }
+
+  return navigator.mediaDevices.getUserMedia({
+    video: requestScreen()
+  });
 };
 
 var getUserMedia = function getUserMedia(_ref2) {

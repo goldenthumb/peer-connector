@@ -4,21 +4,21 @@ import randombytes from 'randombytes';
 import allOff from 'event-emitter/all-off';
 import getBrowserRTC from 'get-browser-rtc';
 
-const connect = ({ host, port, username, password, ssl = false }) => {
-    return new Promise((resolve, reject) => {
-        const accessAuth = username && password ? `${username}:${password}@` : '';
-        const webSocket = new WebSocket(`${ssl ? 'wss' : 'ws'}://${accessAuth}${host}:${port}`);
-        
-        webSocket.onopen = () => resolve(webSocket);
-        webSocket.onerror = () => reject(new Error('connect failed.'));
-    });
-};
+const connect = ({ host, port, username, password, ssl = false }) => new Promise((resolve, reject) => {
+    const accessAuth = username && password ? `${username}:${password}@` : '';
+    const webSocket = new WebSocket(`${ssl ? 'wss' : 'ws'}://${accessAuth}${host}:${port}`);
 
-var connect$1 = async servers => {
+    webSocket.onopen = () => resolve(webSocket);
+    webSocket.onerror = () => reject(new Error('connect failed.'));
+});
+
+// eslint-disable-next-line consistent-return
+var connect$1 = async (servers) => {
     for (const server of servers) {
         try {
             return await connect(server);
         } catch (error) {
+            // eslint-disable-next-line no-continue
             continue;
         }
     }
@@ -31,34 +31,34 @@ const EXTENSION_URL = `https://chrome.google.com/webstore/detail/screen-sharing-
 
 var requestScreen = async () => {
     switch (userAgent.name) {
-        case 'firefox':
-            return { mediaSource: 'screen' };
-        case 'chrome':
-            if (!await isInstalledExtension()) {
-                window.location.href = EXTENSION_URL;
-            }
-            
-            return {
-                mandatory: {
-                    chromeMediaSource: 'desktop',
-                    chromeMediaSourceId: await getStreamId(),
-                    maxWidth: window.screen.width,
-                    maxHeight: window.screen.height
-                }
-            };
-        default:
-            throw new Error('not support browser');
+    case 'firefox':
+        return { mediaSource: 'screen' };
+    case 'chrome':
+        if (!await isInstalledExtension()) {
+            window.location.href = EXTENSION_URL;
+        }
+
+        return {
+            mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: await getStreamId(),
+                maxWidth: window.screen.width,
+                maxHeight: window.screen.height,
+            },
+        };
+    default:
+        throw new Error('not support browser');
     }
 };
 
-const getStreamId = () => new Promise(resolve => {
+const getStreamId = () => new Promise((resolve) => {
     window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
     window.addEventListener('message', function listener({ data: { type, streamId } }) {
         if (type === 'SCREEN_SHARE') {
             window.removeEventListener('message', listener);
             resolve(streamId);
         }
-        
+
         if (type === 'SCREEN_CANCEL') {
             window.removeEventListener('message', listener);
             resolve(false);
@@ -66,7 +66,7 @@ const getStreamId = () => new Promise(resolve => {
     });
 });
 
-const isInstalledExtension = () => new Promise(resolve => {
+const isInstalledExtension = () => new Promise((resolve) => {
     const img = document.createElement('img');
     img.src = `chrome-extension://${EXTENSION_ID}/icon.png`;
     img.onload = () => resolve(true);
@@ -74,14 +74,14 @@ const isInstalledExtension = () => new Promise(resolve => {
 });
 
 const CONFIG = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 };
 
 const MESSAGE = {
     JOIN: '/PEER_CONNECTOR/join',
     REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
     SDP: '/PEER_CONNECTOR/sdp',
-    CANDIDATE: '/PEER_CONNECTOR/candidate'
+    CANDIDATE: '/PEER_CONNECTOR/candidate',
 };
 
 class Signal {
@@ -90,65 +90,65 @@ class Signal {
         this._ws = webSocket;
         this._id = randombytes(20).toString('hex');
         this._pc = peerConnector;
-        
+
         webSocket.onmessage = this._onMessage.bind(this);
     }
-    
+
     _on(eventName, listener) {
         this._emitter.on(eventName, listener);
     }
-    
+
     _onMessage(message) {
         if (!message) return;
         const { event, data } = JSON.parse(message.data);
         if (this._equalId(data)) this._emitter.emit(event, data);
     }
-    
+
     _send(event, data = {}) {
         this._ws.send(JSON.stringify({
             event,
-            data: Object.assign({}, data, { sender: this._id })
+            data: { ...data, sender: this._id },
         }));
     }
-    
+
     _equalId(data) {
         return !data.receiver || data.receiver === this._id;
     }
-    
+
     signaling() {
         this._send(MESSAGE.JOIN);
-        
+
         this._on(MESSAGE.JOIN, ({ sender }) => {
             this._send(MESSAGE.REQUEST_CONNECT, { receiver: sender });
         });
-        
+
         this._on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
             const peer = this._createPeer(sender);
             peer.createDataChannel(this._id);
             this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
         });
-        
+
         this._on(MESSAGE.SDP, async ({ sender, sdp }) => {
             const peer = this._pc.hasPeer(sender) ? this._pc.getPeer(sender) : this._createPeer(sender);
             await peer.setRemoteDescription(sdp);
-            
+
             if (sdp.type === 'offer') {
                 this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createAnswerSdp() });
             }
         });
-        
+
         this._on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
             const peer = this._pc.hasPeer(sender) ? this._pc.getPeer(sender) : this._createPeer(sender);
             peer.addIceCandidate(candidate);
         });
     }
-    
+
     _createPeer(id) {
         return this._pc.createPeer({
             id,
             onIceCandidate: (candidate) => {
                 this._send(MESSAGE.CANDIDATE, { receiver: id, candidate });
-            }
+            },
         });
     }
 }
@@ -165,71 +165,72 @@ class Peer {
         this._localStream = localStream;
         this._isConnected = false;
         this._data = data;
-        
+
         this._init();
     }
-    
+
     get id() {
         return this._id;
     }
-    
+
     get data() {
         return this._data;
     }
-    
+
     get localStream() {
         return this._localStream;
     }
-    
+
     get remoteStream() {
         return this._remoteStream;
     }
-    
+
     get localSdp() {
         return this._localSdp;
     }
-    
+
     get remoteSdp() {
         return this._remoteSdp;
     }
-    
+
     get senders() {
         return this._pc.getSenders();
     }
-    
+
     createDataChannel(channelName) {
         if (!this._pc.createDataChannel) return;
         this._setDataChannel(this._pc.createDataChannel(channelName));
     }
-    
+
     setRemoteDescription(sdp) {
-        return this._pc.setRemoteDescription(new RTCSessionDescription(this._remoteSdp = sdp));
+        this._remoteSdp = sdp;
+        return this._pc.setRemoteDescription(new RTCSessionDescription(this._remoteSdp));
     }
-    
+
     addIceCandidate(candidate) {
         return this._pc.addIceCandidate(candidate);
     }
-    
+
     on(eventName, listener) {
         this._emitter.on(eventName, listener);
     }
-    
+
     once(eventName, listener) {
         this._emitter.once(eventName, listener);
     }
-    
+
     send(data) {
-        this._dc && this._dc.send(data);
+        if (this._dc) this._dc.send(data);
     }
-    
+
     close() {
         this._pc.close();
         allOff(this._emitter);
     }
-    
+
     _setDataChannel(dc) {
         this._dc = dc;
-        
+
         dc.onmessage = ({ data }) => this._emitter.emit('data', data);
         dc.onclose = () => this._emitter.emit('close', 'datachannel');
         dc.onopen = () => this._emitter.emit('open');
@@ -238,43 +239,45 @@ class Peer {
             this._emitter.emit('error', error);
         };
     }
-    
+
     _init() {
         if (this.localStream) {
-            this.localStream.getTracks().forEach(track => this._pc.addTrack(track, this.localStream));
+            this.localStream.getTracks().forEach((track) => this._pc.addTrack(track, this.localStream));
         }
-        
+
         this._pc.onicecandidate = ({ candidate }) => {
             if (candidate) this._emitter.emit('onIceCandidate', candidate);
         };
-        
+
         this._pc.ontrack = ({ streams }) => {
-            if (!this._remoteStream) this._emitter.emit('stream', this._remoteStream = streams[0]);
+            const [stream] = streams;
+            this._remoteStream = stream;
+            if (!this._remoteStream) this._emitter.emit('stream', this._remoteStream);
         };
-        
+
         this._pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
-        
+
         this._pc.oniceconnectionstatechange = () => {
             if (!this._isConnected && this._pc.iceConnectionState === 'connected') {
                 this._isConnected = true;
                 this._emitter.emit('connect');
             }
-            
+
             if (this._pc.iceConnectionState === 'disconnected') {
                 this._isConnected = false;
                 this._emitter.emit('close', 'ICE connection');
             }
-            
+
             this._emitter.emit('updateIceState', this._pc.iceConnectionState);
         };
     }
-    
+
     async createOfferSdp() {
         this._localSdp = await this._pc.createOffer();
         this._pc.setLocalDescription(this._localSdp);
         return this._localSdp;
     }
-    
+
     async createAnswerSdp() {
         this._localSdp = await this._pc.createAnswer();
         this._pc.setLocalDescription(this._localSdp);
@@ -289,42 +292,52 @@ class PeerConnector {
         this._stream = stream;
         this._config = config;
     }
-    
+
     on(eventName, listener) {
         this._emitter.on(eventName, listener);
     }
-    
+
+    off(eventName, listener) {
+        this._emitter.off(eventName, listener);
+    }
+
+    allOff() {
+        allOff(this._emitter);
+    }
+
     get stream() {
         return this._stream;
     }
-    
+
     get peers() {
         return this._peers;
     }
-    
+
     createPeer({ id, onIceCandidate, data }) {
         const peer = new Peer({ id, localStream: this._stream, config: this._config, data });
-        
+
         peer.on('onIceCandidate', onIceCandidate);
         peer.on('connect', () => this._emitter.emit('connect', peer));
-        
+
         this._peers.set(peer.id, peer);
-        
+
         return peer;
     }
-    
+
     hasPeer(id) {
         return this._peers.has(id);
     }
-    
+
     getPeer(id) {
         return this._peers.get(id);
     }
-    
+
     close() {
         if (this._stream) {
-            this._stream.getTracks().forEach(track => track.stop());
+            this._stream.getTracks().forEach((track) => track.stop());
         }
+
+        this.allOff();
     }
 }
 
@@ -332,33 +345,30 @@ var index = async ({ servers, mediaType, stream, config }) => {
     if (!getBrowserRTC()) {
         throw new Error('Not support getUserMedia API');
     }
-    
+
     if (!stream && mediaType) {
         stream = await getMediaStream(mediaType);
     }
-    
+
     const peerConnector = new PeerConnector({ stream, config });
-    
+
     if (servers) {
         const signal = new Signal({ peerConnector, config, webSocket: await connect$1(servers) });
         signal.signaling();
     }
-    
+
     return peerConnector;
 };
 
-const getMediaStream = (mediaType = {}) => {
-    return mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType);
-};
+const getMediaStream = (mediaType = {}) => (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
 
 const getDisplayMedia = () => {
     if (navigator.getDisplayMedia) {
         return navigator.getDisplayMedia({ video: true });
-    } else if (navigator.mediaDevices.getDisplayMedia) {
+    } if (navigator.mediaDevices.getDisplayMedia) {
         return navigator.mediaDevices.getDisplayMedia({ video: true });
-    } else {
-        return navigator.mediaDevices.getUserMedia({ video: requestScreen() });
     }
+    return navigator.mediaDevices.getUserMedia({ video: requestScreen() });
 };
 
 const getUserMedia = ({ video, audio }) => {
