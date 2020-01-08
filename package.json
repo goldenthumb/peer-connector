@@ -14,14 +14,30 @@
         "build": "npm run build-umd && npm run build-cjs && npm run build-es",
         "build-cjs": "bili --format cjs --filename index[suffix].js",
         "build-es": "bili --format es --filename index[suffix].js --no-js",
-        "build-umd": "poi ./src/index.js --prod --format umd --out-dir dist --module-name PeerConnector"
+        "build-umd": "poi ./src/index.js --prod --format umd --out-dir dist --module-name PeerConnector",
+        "lint": "eslint 'src/**/*.js' && eslint 'example/src/**/*.js'",
+        "lint-fix": "eslint --fix 'src/**/*.js' && eslint --fix 'example/src/**/*.js'",
+        "precommit-msg": "echo 'Pre-commit checks...' && exit 0"
     },
+    "eslintConfig": {
+        "extends": "goldenthumb",
+        "env": {
+            "browser": true
+        }
+    },
+    "pre-commit": [
+        "precommit-msg",
+        "lint"
+    ],
     "poi": {
         "output": {
             "fileNames": {
                 "js": "peerConnector.js"
             }
         }
+    },
+    "publishConfig": {
+        "access": "public"
     },
     "repository": {
         "type": "git",
@@ -63,6 +79,8 @@
         "babel-plugin-transform-object-rest-spread": "^6.26.0",
         "babel-preset-env": "^1.7.0",
         "bili": "^3.1.2",
+        "eslint": "^6.8.0",
+        "eslint-config-goldenthumb": "^0.0.7",
         "express": "^4.16.4",
         "http": "0.0.0",
         "poi": "^12.6.6",
@@ -77,8 +95,5 @@
         "event-emitter": "^0.3.5",
         "get-browser-rtc": "^1.0.2",
         "randombytes": "^2.0.6"
-    },
-    "publishConfig": {
-        "access": "public"
     }
 }

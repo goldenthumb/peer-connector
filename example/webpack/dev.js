@@ -6,7 +6,7 @@ module.exports = {
     entry: [resolve(__dirname, '../src/index.js')],
     output: {
         path: resolve(__dirname, '../dist'),
-        filename: 'app.min.js'
+        filename: 'app.min.js',
     },
     module: {
         rules: [
@@ -15,20 +15,20 @@ module.exports = {
                 use: {
                     loader: 'babel-loader',
                     options: {
-                        'presets': [
+                        presets: [
                             ['env', {
-                                'targets': {
-                                    'node': 'current'
-                                }
-                            }]
+                                targets: {
+                                    node: 'current',
+                                },
+                            }],
                         ],
-                        'plugins': [
-                            ['transform-object-rest-spread', { 'useBuiltIns': true }]
-                        ]
-                    }
+                        plugins: [
+                            ['transform-object-rest-spread', { useBuiltIns: true }],
+                        ],
+                    },
                 },
-                exclude: /node_modules/
-            }
-        ]
-    }
+                exclude: /node_modules/,
+            },
+        ],
+    },
 };

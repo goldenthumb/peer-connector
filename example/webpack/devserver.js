@@ -10,11 +10,9 @@ module.exports = (env) => {
             port: 3000,
             host: 'localhost',
             contentBase: resolve(__dirname, '../views'),
-            publicPath: '/dist/js'
+            publicPath: '/dist/js',
         }
     };
-    
-    console.log(config.entry);
     
     config.output.filename = buildConfig.output.filename;
     
