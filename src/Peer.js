@@ -1,64 +1,40 @@
 import Emitter from 'event-emitter';
 import allOff from 'event-emitter/all-off';
 import randombytes from 'randombytes';
-import { CONFIG } from './constants';
 
 export default class Peer {
-    constructor({ localStream, id = randombytes(20).toString('hex'), config = CONFIG, data = {} }) {
-        this._id = id;
-        this._pc = new RTCPeerConnection(config);
+    constructor({ stream, config, data, id = randombytes(20).toString('hex') }) {
+        this.id = id;
+        this.data = data;
+        this.pc = new RTCPeerConnection(config);
+        this.localStream = stream;
+        this.remoteStream = null;
+        this.localSdp = null;
+        this.remoteSdp = null;
+
         this._dc = null;
         this._emitter = new Emitter();
-        this._localSdp = null;
-        this._remoteSdp = null;
-        this._remoteStream = null;
-        this._localStream = localStream;
         this._isConnected = false;
-        this._data = data;
 
         this._init();
     }
 
-    get id() {
-        return this._id;
-    }
-
-    get data() {
-        return this._data;
-    }
-
-    get localStream() {
-        return this._localStream;
-    }
-
-    get remoteStream() {
-        return this._remoteStream;
-    }
-
-    get localSdp() {
-        return this._localSdp;
-    }
-
-    get remoteSdp() {
-        return this._remoteSdp;
-    }
-
-    get senders() {
-        return this._pc.getSenders();
+    getSenders() {
+        return this.pc.getSenders();
     }
 
     createDataChannel(channelName) {
-        if (!this._pc.createDataChannel) return;
-        this._setDataChannel(this._pc.createDataChannel(channelName));
+        if (!this.pc.createDataChannel) return;
+        this._setDataChannel(this.pc.createDataChannel(channelName));
     }
 
     setRemoteDescription(sdp) {
-        this._remoteSdp = sdp;
-        return this._pc.setRemoteDescription(new RTCSessionDescription(this._remoteSdp));
+        this.remoteSdp = sdp;
+        return this.pc.setRemoteDescription(new RTCSessionDescription(this.remoteSdp));
     }
 
     addIceCandidate(candidate) {
-        return this._pc.addIceCandidate(candidate);
+        return this.pc.addIceCandidate(candidate);
     }
 
     on(eventName, listener) {
@@ -74,7 +50,7 @@ export default class Peer {
     }
 
     close() {
-        this._pc.close();
+        this.pc.close();
         allOff(this._emitter);
     }
 
@@ -92,45 +68,45 @@ export default class Peer {
 
     _init() {
         if (this.localStream) {
-            this.localStream.getTracks().forEach((track) => this._pc.addTrack(track, this.localStream));
+            this.localStream.getTracks().forEach((track) => this.pc.addTrack(track, this.localStream));
         }
 
-        this._pc.onicecandidate = ({ candidate }) => {
+        this.pc.onicecandidate = ({ candidate }) => {
             if (candidate) this._emitter.emit('onIceCandidate', candidate);
         };
 
-        this._pc.ontrack = ({ streams }) => {
+        this.pc.ontrack = ({ streams }) => {
             const [stream] = streams;
-            this._remoteStream = stream;
-            if (!this._remoteStream) this._emitter.emit('stream', this._remoteStream);
+            this.remoteStream = stream;
+            if (!this.remoteStream) this._emitter.emit('stream', this.remoteStream);
         };
 
-        this._pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
+        this.pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
 
-        this._pc.oniceconnectionstatechange = () => {
-            if (!this._isConnected && this._pc.iceConnectionState === 'connected') {
+        this.pc.oniceconnectionstatechange = () => {
+            if (!this._isConnected && this.pc.iceConnectionState === 'connected') {
                 this._isConnected = true;
                 this._emitter.emit('connect');
             }
 
-            if (this._pc.iceConnectionState === 'disconnected') {
+            if (this.pc.iceConnectionState === 'disconnected') {
                 this._isConnected = false;
                 this._emitter.emit('close', 'ICE connection');
             }
 
-            this._emitter.emit('updateIceState', this._pc.iceConnectionState);
+            this._emitter.emit('updateIceState', this.pc.iceConnectionState);
         };
     }
 
     async createOfferSdp() {
-        this._localSdp = await this._pc.createOffer();
-        this._pc.setLocalDescription(this._localSdp);
-        return this._localSdp;
+        this.localSdp = await this.pc.createOffer();
+        this.pc.setLocalDescription(this.localSdp);
+        return this.localSdp;
     }
 
     async createAnswerSdp() {
-        this._localSdp = await this._pc.createAnswer();
-        this._pc.setLocalDescription(this._localSdp);
-        return this._localSdp;
+        this.localSdp = await this.pc.createAnswer();
+        this.pc.setLocalDescription(this.localSdp);
+        return this.localSdp;
     }
 }

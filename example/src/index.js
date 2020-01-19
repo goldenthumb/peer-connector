@@ -1,4 +1,4 @@
-import peerConnector, { getMediaStream } from '../../src';
+import PeerConnector, { Signal, getMediaStream, connectWS } from '../../src';
 
 const getEl = (id) => document.getElementById(id);
 const createEl = (el) => document.createElement(el);
@@ -11,17 +11,20 @@ const $peerConnect = getEl('connect');
 $peerConnect.addEventListener('click', async () => {
     const type = document.querySelector('input[name="media-type"]:checked').value;
     const mediaType = type === 'screen' ? { screen: true } : { video: true, audio: true };
-    const servers = [{ host: 'localhost', port: 1234 }];
+    const server = { host: 'localhost', port: 1234 };
 
     try {
         const stream = await getMediaStream(mediaType);
-        const pc = await peerConnector({ stream, servers });
+        $local.srcObject = stream;
 
-        if (stream) $local.srcObject = stream;
+        const peerConnector = new PeerConnector({ stream });
+        const signal = new Signal({ websocket: await connectWS(server) });
 
-        pc.on('connect', (peer) => {
+        signal.autoSignaling(peerConnector);
+
+        peerConnector.on('connect', (peer) => {
             console.log('peer connected', peer);
-            console.log('peers info', pc.peers);
+            console.log('peers info', peerConnector.peers);
 
             const $remoteVideo = createEl('video');
             $remoteVideo.style.width = '33%';

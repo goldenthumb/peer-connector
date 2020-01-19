@@ -1,12 +1,12 @@
 import { detect } from 'detect-browser';
 
-const userAgent = detect();
-
 const EXTENSION_ID = 'mopiaiibclcaiolndiidmkpejmcpjmcf';
 const EXTENSION_URL = `https://chrome.google.com/webstore/detail/screen-sharing-extension/${EXTENSION_ID}`;
 
 export default async () => {
-    switch (userAgent.name) {
+    const { name } = detect();
+
+    switch (name) {
     case 'firefox':
         return { mediaSource: 'screen' };
     case 'chrome':
@@ -27,24 +27,28 @@ export default async () => {
     }
 };
 
-const getStreamId = () => new Promise((resolve) => {
-    window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
-    window.addEventListener('message', function listener({ data: { type, streamId } }) {
-        if (type === 'SCREEN_SHARE') {
-            window.removeEventListener('message', listener);
-            resolve(streamId);
-        }
+function getStreamId() {
+    return new Promise((resolve) => {
+        window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
+        window.addEventListener('message', function listener({ data: { type, streamId } }) {
+            if (type === 'SCREEN_SHARE') {
+                window.removeEventListener('message', listener);
+                resolve(streamId);
+            }
 
-        if (type === 'SCREEN_CANCEL') {
-            window.removeEventListener('message', listener);
-            resolve(false);
-        }
+            if (type === 'SCREEN_CANCEL') {
+                window.removeEventListener('message', listener);
+                resolve(false);
+            }
+        });
     });
-});
+}
 
-const isInstalledExtension = () => new Promise((resolve) => {
-    const img = document.createElement('img');
-    img.src = `chrome-extension://${EXTENSION_ID}/icon.png`;
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-});
+function isInstalledExtension() {
+    return new Promise((resolve) => {
+        const img = document.createElement('img');
+        img.src = `chrome-extension://${EXTENSION_ID}/icon.png`;
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+    });
+}

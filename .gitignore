@@ -4,3 +4,4 @@ example/dist
 .history/
 .vscode
 *.lock
+yarn-error.log

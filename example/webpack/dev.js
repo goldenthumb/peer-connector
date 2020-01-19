@@ -1,7 +1,7 @@
 const { resolve } = require('path');
 
 module.exports = {
-    devtool: 'source-map',
+    devtool: 'inline-source-map',
     mode: 'development',
     entry: [resolve(__dirname, '../src/index.js')],
     output: {
@@ -16,14 +16,11 @@ module.exports = {
                     loader: 'babel-loader',
                     options: {
                         presets: [
-                            ['env', {
-                                targets: {
-                                    node: 'current',
-                                },
-                            }],
+                            '@babel/preset-env',
                         ],
                         plugins: [
-                            ['transform-object-rest-spread', { useBuiltIns: true }],
+                            '@babel/plugin-transform-runtime',
+                            '@babel/plugin-proposal-class-properties',
                         ],
                     },
                 },

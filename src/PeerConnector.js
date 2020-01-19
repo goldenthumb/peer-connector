@@ -1,13 +1,23 @@
+import getBrowserRTC from 'get-browser-rtc';
 import Emitter from 'event-emitter';
 import allOff from 'event-emitter/all-off';
 import Peer from './Peer';
 
+const DEFAULT_CONFIG = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+};
+
 export default class PeerConnector {
-    constructor({ stream, config }) {
-        this._emitter = new Emitter();
-        this._peers = new Map();
-        this._stream = stream;
+    constructor({ stream, config = DEFAULT_CONFIG }) {
+        if (!getBrowserRTC()) {
+            throw new Error('Not support getUserMedia API');
+        }
+
+        this.stream = stream;
+        this.peers = new Map();
+
         this._config = config;
+        this._emitter = new Emitter();
     }
 
     on(eventName, listener) {
@@ -18,42 +28,32 @@ export default class PeerConnector {
         this._emitter.off(eventName, listener);
     }
 
-    allOff() {
-        allOff(this._emitter);
-    }
+    createPeer(id) {
+        const peer = new Peer({ id, stream: this.stream, config: this._config });
 
-    get stream() {
-        return this._stream;
-    }
-
-    get peers() {
-        return this._peers;
-    }
-
-    createPeer({ id, onIceCandidate, data }) {
-        const peer = new Peer({ id, localStream: this._stream, config: this._config, data });
-
-        peer.on('onIceCandidate', onIceCandidate);
         peer.on('connect', () => this._emitter.emit('connect', peer));
-
-        this._peers.set(peer.id, peer);
+        this.peers.set(peer.id, peer);
 
         return peer;
     }
 
     hasPeer(id) {
-        return this._peers.has(id);
+        return this.peers.has(id);
     }
 
     getPeer(id) {
-        return this._peers.get(id);
+        return this.peers.get(id);
     }
 
     close() {
-        if (this._stream) {
-            this._stream.getTracks().forEach((track) => track.stop());
+        if (this.stream) {
+            this.stream.getTracks().forEach((track) => track.stop());
         }
 
-        this.allOff();
+        this.destroy();
+    }
+
+    destroy() {
+        allOff(this._emitter);
     }
 }

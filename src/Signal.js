@@ -1,73 +1,80 @@
 import EventEmitter from 'event-emitter';
 import randombytes from 'randombytes';
 
-import { MESSAGE } from './constants';
-
+export const SIGNAL_EVENT = {
+    JOIN: 'join',
+    REQUEST_CONNECT: 'request-connect',
+    SDP: 'sdp',
+    CANDIDATE: 'candidate',
+};
 export default class Signal {
-    constructor({ webSocket, peerConnector }) {
+    constructor({ websocket, id = randombytes(20).toString('hex') }) {
         this._emitter = new EventEmitter();
-        this._ws = webSocket;
-        this._id = randombytes(20).toString('hex');
-        this._pc = peerConnector;
+        this._ws = websocket;
+        this._id = id;
 
-        webSocket.onmessage = this._onMessage.bind(this);
+        websocket.onmessage = this._onMessage.bind(this);
     }
 
-    _on(eventName, listener) {
-        this._emitter.on(eventName, listener);
-    }
-
-    _onMessage(message) {
-        if (!message) return;
-        const { event, data } = JSON.parse(message.data);
-        if (this._equalId(data)) this._emitter.emit(event, data);
-    }
-
-    _send(event, data = {}) {
+    send(event, data = {}) {
         this._ws.send(JSON.stringify({
             event,
-            data: { ...data, sender: this._id },
+            data: {
+                sender: this._id,
+                ...data,
+            },
         }));
     }
 
-    _equalId(data) {
-        return !data.receiver || data.receiver === this._id;
-    }
+    autoSignaling(peerConnector) {
+        this.send(SIGNAL_EVENT.JOIN);
 
-    signaling() {
-        this._send(MESSAGE.JOIN);
-
-        this._on(MESSAGE.JOIN, ({ sender }) => {
-            this._send(MESSAGE.REQUEST_CONNECT, { receiver: sender });
+        this._emitter.on(SIGNAL_EVENT.JOIN, ({ sender }) => {
+            this.send(SIGNAL_EVENT.REQUEST_CONNECT, { receiver: sender });
         });
 
-        this._on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
-            const peer = this._createPeer(sender);
+        this._emitter.on(SIGNAL_EVENT.REQUEST_CONNECT, async ({ sender }) => {
+            const peer = peerConnector.createPeer(sender);
+
+            peer.on('onIceCandidate', (candidate) => {
+                this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
+            });
+
             peer.createDataChannel(this._id);
-            this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
+            this.send(SIGNAL_EVENT.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
         });
 
-        this._on(MESSAGE.SDP, async ({ sender, sdp }) => {
-            const peer = this._pc.hasPeer(sender) ? this._pc.getPeer(sender) : this._createPeer(sender);
-            await peer.setRemoteDescription(sdp);
+        this._emitter.on(SIGNAL_EVENT.SDP, async ({ sender, sdp }) => {
+            if (sdp.type === 'answer') {
+                const peer = peerConnector.getPeer(sender);
+                await peer.setRemoteDescription(sdp);
+            } else {
+                const peer = peerConnector.createPeer(sender);
 
-            if (sdp.type === 'offer') {
-                this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createAnswerSdp() });
+                peer.on('onIceCandidate', (candidate) => {
+                    this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
+                });
+
+                await peer.setRemoteDescription(sdp);
+                this.send(SIGNAL_EVENT.SDP, { receiver: peer.id, sdp: await peer.createAnswerSdp() });
             }
         });
 
-        this._on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
-            const peer = this._pc.hasPeer(sender) ? this._pc.getPeer(sender) : this._createPeer(sender);
+        this._emitter.on(SIGNAL_EVENT.CANDIDATE, ({ sender, candidate }) => {
+            const peer = peerConnector.getPeer(sender);
             peer.addIceCandidate(candidate);
         });
     }
 
-    _createPeer(id) {
-        return this._pc.createPeer({
-            id,
-            onIceCandidate: (candidate) => {
-                this._send(MESSAGE.CANDIDATE, { receiver: id, candidate });
-            },
-        });
+    _onMessage({ data: message } = {}) {
+        const { event, data } = JSON.parse(message);
+        if (!this._equalId(data)) return;
+
+        this._emitter.emit(event, data);
+        this._emitter.emit('message', { event, data });
+    }
+
+    _equalId(data) {
+        return !data.receiver || data.receiver === this._id;
     }
 }
