@@ -4,160 +4,633 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var detectBrowser = require('detect-browser');
 var Emitter = _interopDefault(require('event-emitter'));
-var randombytes = _interopDefault(require('randombytes'));
-var _allOff = _interopDefault(require('event-emitter/all-off'));
+var allOff = _interopDefault(require('event-emitter/all-off'));
+var nanoid = _interopDefault(require('nanoid'));
 var getBrowserRTC = _interopDefault(require('get-browser-rtc'));
+var detectBrowser = require('detect-browser');
 
-var connect = function connect(_ref) {
-  var host = _ref.host,
-      port = _ref.port,
-      username = _ref.username,
-      password = _ref.password,
-      _ref$ssl = _ref.ssl,
-      ssl = _ref$ssl === void 0 ? false : _ref$ssl;
-  return new Promise(function (resolve, reject) {
-    var accessAuth = username && password ? "".concat(username, ":").concat(password, "@") : '';
-    var webSocket = new WebSocket("".concat(ssl ? 'wss' : 'ws', "://").concat(accessAuth).concat(host, ":").concat(port));
+function _classCallCheck(instance, Constructor) {
+  if (!(instance instanceof Constructor)) {
+    throw new TypeError("Cannot call a class as a function");
+  }
+}
 
-    webSocket.onopen = function () {
-      return resolve(webSocket);
-    };
+function _defineProperties(target, props) {
+  for (var i = 0; i < props.length; i++) {
+    var descriptor = props[i];
+    descriptor.enumerable = descriptor.enumerable || false;
+    descriptor.configurable = true;
+    if ("value" in descriptor) descriptor.writable = true;
+    Object.defineProperty(target, descriptor.key, descriptor);
+  }
+}
 
-    webSocket.onerror = function () {
-      return reject(new Error('connect failed.'));
-    };
-  });
-}; // eslint-disable-next-line consistent-return
+function _createClass(Constructor, protoProps, staticProps) {
+  if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+  if (staticProps) _defineProperties(Constructor, staticProps);
+  return Constructor;
+}
 
+function _slicedToArray(arr, i) {
+  return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest();
+}
 
-var connect$1 = (function (servers) {
-  return new Promise(function ($return, $error) {
-    var $Try_1_Finally = function ($Try_1_Exit) {
-      return function ($Try_1_Value) {
+function _arrayWithHoles(arr) {
+  if (Array.isArray(arr)) return arr;
+}
+
+function _iterableToArrayLimit(arr, i) {
+  if (!(Symbol.iterator in Object(arr) || Object.prototype.toString.call(arr) === "[object Arguments]")) {
+    return;
+  }
+
+  var _arr = [];
+  var _n = true;
+  var _d = false;
+  var _e = undefined;
+
+  try {
+    for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+      _arr.push(_s.value);
+
+      if (i && _arr.length === i) break;
+    }
+  } catch (err) {
+    _d = true;
+    _e = err;
+  } finally {
+    try {
+      if (!_n && _i["return"] != null) _i["return"]();
+    } finally {
+      if (_d) throw _e;
+    }
+  }
+
+  return _arr;
+}
+
+function _nonIterableRest() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance");
+}
+
+var Peer =
+/*#__PURE__*/
+function () {
+  /**
+   * @param {object} props
+   * @param {MediaStream} [props.stream]
+   * @param {RTCConfiguration} [props.config]
+   * @param {typeof import('./PeerConnector').DEFAULT_OPTION} [props.option]
+   * @param {string} [props.id]
+   */
+  function Peer(_ref) {
+    var stream = _ref.stream,
+        config = _ref.config,
+        option = _ref.option,
+        _ref$id = _ref.id,
+        id = _ref$id === void 0 ? nanoid(20) : _ref$id;
+
+    _classCallCheck(this, Peer);
+
+    this.id = id;
+    this.localStream = stream;
+    this.remoteStream = null;
+    this.localSdp = null;
+    this.remoteSdp = null;
+    this._rtcPeer = new RTCPeerConnection(config);
+    this._dataChannel = null;
+    this._option = option;
+    this._emitter = new Emitter();
+    this._isConnectedPeer = false;
+    this._isConnectedDataChannel = false;
+    this._dataQueue = [];
+
+    this._attachEvents();
+  }
+
+  _createClass(Peer, [{
+    key: "on",
+    value: function on(eventName, listener) {
+      this._emitter.on(eventName, listener);
+    }
+  }, {
+    key: "once",
+    value: function once(eventName, listener) {
+      this._emitter.once(eventName, listener);
+    }
+  }, {
+    key: "off",
+    value: function off(eventName, listener) {
+      this._emitter.off(eventName, listener);
+    }
+  }, {
+    key: "isConnected",
+    value: function isConnected() {
+      return this._option.dataChannel ? this._isConnectedDataChannel && this._isConnectedPeer : this._isConnectedPeer;
+    }
+  }, {
+    key: "getSenders",
+    value: function getSenders() {
+      return this._rtcPeer.getSenders();
+    }
+  }, {
+    key: "createOfferSdp",
+    value: function createOfferSdp(options) {
+      return new Promise(function ($return, $error) {
+        return Promise.resolve(this._rtcPeer.createOffer(options)).then(function ($await_3) {
+          try {
+            this.localSdp = $await_3;
+
+            this._rtcPeer.setLocalDescription(this.localSdp);
+
+            return $return(this.localSdp);
+          } catch ($boundEx) {
+            return $error($boundEx);
+          }
+        }.bind(this), $error);
+      }.bind(this));
+    }
+  }, {
+    key: "createAnswerSdp",
+    value: function createAnswerSdp(options) {
+      return new Promise(function ($return, $error) {
+        return Promise.resolve(this._rtcPeer.createAnswer(options)).then(function ($await_4) {
+          try {
+            this.localSdp = $await_4;
+
+            this._rtcPeer.setLocalDescription(this.localSdp);
+
+            return $return(this.localSdp);
+          } catch ($boundEx) {
+            return $error($boundEx);
+          }
+        }.bind(this), $error);
+      }.bind(this));
+    }
+  }, {
+    key: "createDataChannel",
+    value: function createDataChannel(channelName) {
+      if (!this._rtcPeer.createDataChannel) return;
+
+      this._setDataChannel(this._rtcPeer.createDataChannel(channelName));
+    }
+  }, {
+    key: "setRemoteDescription",
+    value: function setRemoteDescription(sdp) {
+      this.remoteSdp = sdp;
+      return this._rtcPeer.setRemoteDescription(new RTCSessionDescription(this.remoteSdp));
+    }
+  }, {
+    key: "addIceCandidate",
+    value: function addIceCandidate(candidate) {
+      return this._rtcPeer.addIceCandidate(candidate);
+    }
+  }, {
+    key: "send",
+    value: function send(data) {
+      if (!this._option.dataChannel || !this._dataChannel) return;
+
+      this._dataChannel.send(data);
+    }
+  }, {
+    key: "close",
+    value: function close() {
+      this._rtcPeer.close();
+
+      this.destroy();
+    }
+  }, {
+    key: "destroy",
+    value: function destroy() {
+      allOff(this._emitter);
+    }
+  }, {
+    key: "_setDataChannel",
+    value: function _setDataChannel(dataChannel) {
+      var _this = this;
+
+      this._dataChannel = dataChannel;
+
+      this._dataChannel.onopen = function () {
+        _this._isConnectedDataChannel = true;
+
+        _this._emitConnect();
+      };
+
+      this._dataChannel.onmessage = function (_ref2) {
+        var data = _ref2.data;
+
+        if (!_this.isConnected()) {
+          _this._dataQueue.push(data);
+
+          return;
+        }
+
+        _this._emitter.emit('data', data);
+      };
+
+      this._dataChannel.onerror = function (error) {
+        if (!_this._emitter.hasListeners(_this._emitter, 'error')) throw error;
+
+        _this._emitter.emit('error', error);
+      };
+
+      this._dataChannel.onclose = function () {
+        return _this._emitter.emit('close', 'datachannel');
+      };
+    }
+  }, {
+    key: "_attachEvents",
+    value: function _attachEvents() {
+      var _this2 = this;
+
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(function (track) {
+          _this2._rtcPeer.addTrack(track, _this2.localStream);
+        });
+      }
+
+      this._rtcPeer.onicecandidate = function (_ref3) {
+        var candidate = _ref3.candidate;
+        if (candidate) _this2._emitter.emit('iceCandidate', candidate);
+      };
+
+      this._rtcPeer.ontrack = function (_ref4) {
+        var streams = _ref4.streams;
+        if (_this2.remoteStream) return;
+
+        var _streams = _slicedToArray(streams, 1),
+            stream = _streams[0];
+
+        _this2._emitter.emit('stream', _this2.remoteStream = stream);
+      };
+
+      this._rtcPeer.ondatachannel = function (_ref5) {
+        var channel = _ref5.channel;
+        return _this2._setDataChannel(channel);
+      };
+
+      this._rtcPeer.oniceconnectionstatechange = function () {
+        var state = _this2._rtcPeer.iceConnectionState;
+
+        if (state === 'connected') {
+          _this2._isConnectedPeer = true;
+
+          _this2._emitConnect();
+        }
+
+        if (state === 'disconnected') {
+          _this2._emitter.emit('close', state);
+        }
+
+        _this2._emitter.emit('updateIceState', state);
+      };
+    }
+  }, {
+    key: "_emitConnect",
+    value: function _emitConnect() {
+      if (!this.isConnected()) return;
+
+      this._emitter.emit('connect');
+
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = this._dataQueue[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var data = _step.value;
+
+          this._emitter.emit('data', data);
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
         try {
-          var $Try_3_Finally = function ($Try_3_Exit) {
-            return function ($Try_3_Value) {
-              try {
-                if (_didIteratorError) {
-                  throw _iteratorError;
-                }
+          if (!_iteratorNormalCompletion && _iterator.return != null) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
 
-                return $Try_3_Exit && $Try_3_Exit.call(this, $Try_3_Value);
+      this._dataQueue = [];
+    }
+  }]);
+
+  return Peer;
+}();
+
+var DEFAULT_CONFIG = {
+  iceServers: [{
+    urls: 'stun:stun.l.google.com:19302'
+  }]
+};
+var DEFAULT_OPTION = {
+  dataChannel: true
+};
+
+var PeerConnector =
+/*#__PURE__*/
+function () {
+  /**
+   * @param {object} props
+   * @param {MediaStream} [props.stream]
+   * @param {RTCConfiguration} [props.config]
+   * @param {DEFAULT_OPTION} [props.option]
+   */
+  function PeerConnector(_ref) {
+    var stream = _ref.stream,
+        _ref$config = _ref.config,
+        config = _ref$config === void 0 ? DEFAULT_CONFIG : _ref$config,
+        _ref$option = _ref.option,
+        option = _ref$option === void 0 ? DEFAULT_OPTION : _ref$option;
+
+    _classCallCheck(this, PeerConnector);
+
+    if (!getBrowserRTC()) {
+      throw new Error('Not support getUserMedia API');
+    }
+
+    this.stream = stream;
+    this.peers = new Map();
+    this._config = config;
+    this._option = option;
+    this._emitter = new Emitter();
+  }
+
+  _createClass(PeerConnector, [{
+    key: "on",
+    value: function on(eventName, listener) {
+      this._emitter.on(eventName, listener);
+    }
+  }, {
+    key: "once",
+    value: function once(eventName, listener) {
+      this._emitter.once(eventName, listener);
+    }
+  }, {
+    key: "off",
+    value: function off(eventName, listener) {
+      this._emitter.off(eventName, listener);
+    }
+  }, {
+    key: "createPeer",
+    value: function createPeer(id) {
+      var _this = this;
+
+      var peer = new Peer({
+        id: id,
+        stream: this.stream,
+        config: this._config,
+        option: this._option
+      });
+      peer.once('connect', function () {
+        return _this._emitter.emit('connect', peer);
+      });
+      this.setPeer(peer);
+      return peer;
+    }
+  }, {
+    key: "hasPeer",
+    value: function hasPeer(id) {
+      return this.peers.has(id);
+    }
+  }, {
+    key: "getPeer",
+    value: function getPeer(id) {
+      return this.peers.get(id);
+    }
+  }, {
+    key: "setPeer",
+    value: function setPeer(peer) {
+      this.peers.set(peer.id, peer);
+    }
+  }, {
+    key: "removePeer",
+    value: function removePeer(id) {
+      return this.peers.delete(id);
+    }
+  }, {
+    key: "close",
+    value: function close() {
+      if (this.stream) {
+        this.stream.getTracks().forEach(function (track) {
+          return track.stop();
+        });
+      }
+
+      this.destroy();
+    }
+  }, {
+    key: "destroy",
+    value: function destroy() {
+      allOff(this._emitter);
+    }
+  }]);
+
+  return PeerConnector;
+}();
+
+var SIGNAL_EVENT = {
+  JOIN: 'join',
+  REQUEST_CONNECT: 'request-connect',
+  SDP: 'sdp',
+  CANDIDATE: 'candidate'
+};
+
+var Signal =
+/*#__PURE__*/
+function () {
+  /**
+   * @param {object} props
+   * @param {WebSocket} props.websocket
+   * @param {string} [props.id]
+   */
+  function Signal(_ref) {
+    var websocket = _ref.websocket,
+        _ref$id = _ref.id,
+        id = _ref$id === void 0 ? nanoid(20) : _ref$id;
+
+    _classCallCheck(this, Signal);
+
+    this.id = id;
+    this._emitter = new Emitter();
+    this._ws = websocket;
+    websocket.onmessage = this._onMessage.bind(this);
+  }
+
+  _createClass(Signal, [{
+    key: "on",
+    value: function on(eventName, listener) {
+      this._emitter.on(eventName, listener);
+    }
+  }, {
+    key: "once",
+    value: function once(eventName, listener) {
+      this._emitter.once(eventName, listener);
+    }
+  }, {
+    key: "off",
+    value: function off(eventName, listener) {
+      this._emitter.off(eventName, listener);
+    }
+  }, {
+    key: "send",
+    value: function send(event) {
+      var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+      this._ws.send(JSON.stringify({
+        event: event,
+        data: Object.assign({
+          sender: this.id
+        }, data)
+      }));
+    }
+  }, {
+    key: "autoSignal",
+    value: function autoSignal(peerConnector) {
+      var _this = this;
+
+      this.send(SIGNAL_EVENT.JOIN);
+
+      this._emitter.on(SIGNAL_EVENT.JOIN, function (_ref2) {
+        var sender = _ref2.sender;
+
+        _this.send(SIGNAL_EVENT.REQUEST_CONNECT, {
+          receiver: sender
+        });
+      });
+
+      this._emitter.on(SIGNAL_EVENT.REQUEST_CONNECT, function (_ref3) {
+        return new Promise(function ($return, $error) {
+          var sender, peer;
+          sender = _ref3.sender;
+          peer = peerConnector.createPeer(sender);
+          peer.createDataChannel(_this.id);
+          peer.on('iceCandidate', function (candidate) {
+            _this.send(SIGNAL_EVENT.CANDIDATE, {
+              receiver: peer.id,
+              candidate: candidate
+            });
+          });
+          return Promise.resolve(peer.createOfferSdp()).then(function ($await_2) {
+            try {
+              _this.send(SIGNAL_EVENT.SDP, {
+                receiver: peer.id,
+                sdp: $await_2
+              });
+
+              return $return();
+            } catch ($boundEx) {
+              return $error($boundEx);
+            }
+          }, $error);
+        });
+      });
+
+      this._emitter.on(SIGNAL_EVENT.SDP, function (_ref4) {
+        return new Promise(function ($return, $error) {
+          var sender, sdp, peer, _peer;
+
+          sender = _ref4.sender, sdp = _ref4.sdp;
+
+          if (sdp.type === 'answer') {
+            peer = peerConnector.getPeer(sender);
+            return Promise.resolve(peer.setRemoteDescription(sdp)).then(function ($await_3) {
+              try {
+                return $If_1.call(this);
               } catch ($boundEx) {
                 return $error($boundEx);
               }
-            }.bind(this);
-          }.bind(this);
+            }.bind(this), $error);
+          } else {
+            _peer = peerConnector.createPeer(sender);
 
-          var $Try_3_Catch = function ($exception_4) {
-            try {
-              throw $exception_4;
-            } catch ($boundEx) {
-              return $Try_3_Finally($error)($boundEx);
-            }
-          }.bind(this);
+            _peer.on('iceCandidate', function (candidate) {
+              _this.send(SIGNAL_EVENT.CANDIDATE, {
+                receiver: _peer.id,
+                candidate: candidate
+              });
+            });
 
-          try {
-            if (!_iteratorNormalCompletion && _iterator.return != null) {
-              _iterator.return();
-            }
+            return Promise.resolve(_peer.setRemoteDescription(sdp)).then(function ($await_4) {
+              try {
+                return Promise.resolve(_peer.createAnswerSdp()).then(function ($await_5) {
+                  try {
+                    _this.send(SIGNAL_EVENT.SDP, {
+                      receiver: _peer.id,
+                      sdp: $await_5
+                    });
 
-            return $Try_3_Finally().call(this);
-          } catch ($exception_4) {
-            $Try_3_Catch($exception_4);
+                    return $If_1.call(this);
+                  } catch ($boundEx) {
+                    return $error($boundEx);
+                  }
+                }.bind(this), $error);
+              } catch ($boundEx) {
+                return $error($boundEx);
+              }
+            }.bind(this), $error);
           }
 
-          return $Try_1_Exit && $Try_1_Exit.call(this, $Try_1_Value);
-        } catch ($boundEx) {
-          return $error($boundEx);
-        }
-      }.bind(this);
-    }.bind(this);
-
-    var _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, server;
-
-    _iteratorNormalCompletion = true;
-    _didIteratorError = false;
-    _iteratorError = undefined;
-
-    var $Try_1_Post = function () {
-      try {
-        return $return();
-      } catch ($boundEx) {
-        return $error($boundEx);
-      }
-    };
-
-    var $Try_1_Catch = function (err) {
-      try {
-        _didIteratorError = true;
-        _iteratorError = err;
-        return $Try_1_Finally($Try_1_Post)();
-      } catch ($boundEx) {
-        return $Try_1_Finally($error)($boundEx);
-      }
-    };
-
-    try {
-      _iterator = servers[Symbol.iterator]();
-      var $Loop_5_trampoline;
-
-      function $Loop_5_step() {
-        _iteratorNormalCompletion = true;
-        return $Loop_5;
-      }
-
-      function $Loop_5() {
-        if (!(_iteratorNormalCompletion = (_step = _iterator.next()).done)) {
-          server = _step.value;
-
-          var $Try_2_Catch = function (error) {
-            try {
-              return $Loop_5_step;
-            } catch ($boundEx) {
-              return $Try_1_Catch($boundEx);
-            }
-          };
-
-          try {
-            return Promise.resolve(connect(server)).then($Try_1_Finally($return), $Try_2_Catch);
-          } catch (error) {
-            $Try_2_Catch(error);
+          function $If_1() {
+            return $return();
           }
-        } else return [1];
-      }
+        });
+      });
 
-      return ($Loop_5_trampoline = function (q) {
-        while (q) {
-          if (q.then) return void q.then($Loop_5_trampoline, $Try_1_Catch);
-
-          try {
-            if (q.pop) {
-              if (q.length) return q.pop() ? $Loop_5_exit.call(this) : q;else q = $Loop_5_step;
-            } else q = q.call(this);
-          } catch (_exception) {
-            return $Try_1_Catch(_exception);
-          }
-        }
-      }.bind(this))($Loop_5);
-
-      function $Loop_5_exit() {
-        return $Try_1_Finally($Try_1_Post)();
-      }
-    } catch (err) {
-      $Try_1_Catch(err);
+      this._emitter.on(SIGNAL_EVENT.CANDIDATE, function (_ref5) {
+        var sender = _ref5.sender,
+            candidate = _ref5.candidate;
+        var peer = peerConnector.getPeer(sender);
+        peer.addIceCandidate(candidate);
+      });
     }
-  });
-});
+  }, {
+    key: "destroy",
+    value: function destroy() {
+      allOff(this._emitter);
+    }
+  }, {
+    key: "_onMessage",
+    value: function _onMessage() {
+      var _ref6 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+          message = _ref6.data;
 
-var userAgent = detectBrowser.detect();
+      var _JSON$parse = JSON.parse(message),
+          event = _JSON$parse.event,
+          data = _JSON$parse.data;
+
+      if (!this._equalId(data)) return;
+
+      this._emitter.emit(event, data);
+
+      this._emitter.emit('message', {
+        event: event,
+        data: data
+      });
+    }
+  }, {
+    key: "_equalId",
+    value: function _equalId(data) {
+      return !data.receiver || data.receiver === this.id;
+    }
+  }]);
+
+  return Signal;
+}();
+
 var EXTENSION_ID = 'mopiaiibclcaiolndiidmkpejmcpjmcf';
 var EXTENSION_URL = "https://chrome.google.com/webstore/detail/screen-sharing-extension/".concat(EXTENSION_ID);
-var requestScreen = (function () {
+function requestScreen() {
   return new Promise(function ($return, $error) {
-    switch (userAgent.name) {
+    switch (detectBrowser.detect().name) {
       case 'firefox':
         return $return({
           mediaSource: 'screen'
@@ -195,9 +668,9 @@ var requestScreen = (function () {
 
     return $return();
   });
-});
+}
 
-var getStreamId = function getStreamId() {
+function getStreamId() {
   return new Promise(function (resolve) {
     window.postMessage({
       type: 'SCREEN_REQUEST',
@@ -219,9 +692,9 @@ var getStreamId = function getStreamId() {
       }
     });
   });
-};
+}
 
-var isInstalledExtension = function isInstalledExtension() {
+function isInstalledExtension() {
   return new Promise(function (resolve) {
     var img = document.createElement('img');
     img.src = "chrome-extension://".concat(EXTENSION_ID, "/icon.png");
@@ -234,588 +707,26 @@ var isInstalledExtension = function isInstalledExtension() {
       return resolve(false);
     };
   });
-};
-
-function _classCallCheck(instance, Constructor) {
-  if (!(instance instanceof Constructor)) {
-    throw new TypeError("Cannot call a class as a function");
-  }
 }
 
-function _defineProperties(target, props) {
-  for (var i = 0; i < props.length; i++) {
-    var descriptor = props[i];
-    descriptor.enumerable = descriptor.enumerable || false;
-    descriptor.configurable = true;
-    if ("value" in descriptor) descriptor.writable = true;
-    Object.defineProperty(target, descriptor.key, descriptor);
-  }
-}
-
-function _createClass(Constructor, protoProps, staticProps) {
-  if (protoProps) _defineProperties(Constructor.prototype, protoProps);
-  if (staticProps) _defineProperties(Constructor, staticProps);
-  return Constructor;
-}
-
-function _slicedToArray(arr, i) {
-  return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest();
-}
-
-function _arrayWithHoles(arr) {
-  if (Array.isArray(arr)) return arr;
-}
-
-function _iterableToArrayLimit(arr, i) {
-  var _arr = [];
-  var _n = true;
-  var _d = false;
-  var _e = undefined;
-
-  try {
-    for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
-      _arr.push(_s.value);
-
-      if (i && _arr.length === i) break;
-    }
-  } catch (err) {
-    _d = true;
-    _e = err;
-  } finally {
-    try {
-      if (!_n && _i["return"] != null) _i["return"]();
-    } finally {
-      if (_d) throw _e;
-    }
-  }
-
-  return _arr;
-}
-
-function _nonIterableRest() {
-  throw new TypeError("Invalid attempt to destructure non-iterable instance");
-}
-
-var CONFIG = {
-  iceServers: [{
-    urls: 'stun:stun.l.google.com:19302'
-  }]
-};
-var MESSAGE = {
-  JOIN: '/PEER_CONNECTOR/join',
-  REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
-  SDP: '/PEER_CONNECTOR/sdp',
-  CANDIDATE: '/PEER_CONNECTOR/candidate'
-};
-
-var Signal =
-/*#__PURE__*/
-function () {
-  function Signal(_ref) {
-    var webSocket = _ref.webSocket,
-        peerConnector = _ref.peerConnector;
-
-    _classCallCheck(this, Signal);
-
-    this._emitter = new Emitter();
-    this._ws = webSocket;
-    this._id = randombytes(20).toString('hex');
-    this._pc = peerConnector;
-    webSocket.onmessage = this._onMessage.bind(this);
-  }
-
-  _createClass(Signal, [{
-    key: "_on",
-    value: function _on(eventName, listener) {
-      this._emitter.on(eventName, listener);
-    }
-  }, {
-    key: "_onMessage",
-    value: function _onMessage(message) {
-      if (!message) return;
-
-      var _JSON$parse = JSON.parse(message.data),
-          event = _JSON$parse.event,
-          data = _JSON$parse.data;
-
-      if (this._equalId(data)) this._emitter.emit(event, data);
-    }
-  }, {
-    key: "_send",
-    value: function _send(event) {
-      var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-
-      this._ws.send(JSON.stringify({
-        event: event,
-        data: Object.assign({}, data, {
-          sender: this._id
-        })
-      }));
-    }
-  }, {
-    key: "_equalId",
-    value: function _equalId(data) {
-      return !data.receiver || data.receiver === this._id;
-    }
-  }, {
-    key: "signaling",
-    value: function signaling() {
-      var _this = this;
-
-      this._send(MESSAGE.JOIN);
-
-      this._on(MESSAGE.JOIN, function (_ref2) {
-        var sender = _ref2.sender;
-
-        _this._send(MESSAGE.REQUEST_CONNECT, {
-          receiver: sender
-        });
-      });
-
-      this._on(MESSAGE.REQUEST_CONNECT, function (_ref3) {
-        return new Promise(function ($return, $error) {
-          var sender, peer;
-          sender = _ref3.sender;
-          peer = _this._createPeer(sender);
-          peer.createDataChannel(_this._id);
-          return Promise.resolve(peer.createOfferSdp()).then(function ($await_2) {
-            try {
-              _this._send(MESSAGE.SDP, {
-                receiver: peer.id,
-                sdp: $await_2
-              });
-
-              return $return();
-            } catch ($boundEx) {
-              return $error($boundEx);
-            }
-          }, $error);
-        });
-      });
-
-      this._on(MESSAGE.SDP, function (_ref4) {
-        return new Promise(function ($return, $error) {
-          var sender, sdp, peer;
-          sender = _ref4.sender, sdp = _ref4.sdp;
-          peer = _this._pc.hasPeer(sender) ? _this._pc.getPeer(sender) : _this._createPeer(sender);
-          return Promise.resolve(peer.setRemoteDescription(sdp)).then(function ($await_3) {
-            try {
-              if (sdp.type === 'offer') {
-                return Promise.resolve(peer.createAnswerSdp()).then(function ($await_4) {
-                  try {
-                    _this._send(MESSAGE.SDP, {
-                      receiver: peer.id,
-                      sdp: $await_4
-                    });
-
-                    return $If_1.call(this);
-                  } catch ($boundEx) {
-                    return $error($boundEx);
-                  }
-                }.bind(this), $error);
-              }
-
-              function $If_1() {
-                return $return();
-              }
-
-              return $If_1.call(this);
-            } catch ($boundEx) {
-              return $error($boundEx);
-            }
-          }.bind(this), $error);
-        });
-      });
-
-      this._on(MESSAGE.CANDIDATE, function (_ref5) {
-        var sender = _ref5.sender,
-            candidate = _ref5.candidate;
-        var peer = _this._pc.hasPeer(sender) ? _this._pc.getPeer(sender) : _this._createPeer(sender);
-        peer.addIceCandidate(candidate);
-      });
-    }
-  }, {
-    key: "_createPeer",
-    value: function _createPeer(id) {
-      var _this2 = this;
-
-      return this._pc.createPeer({
-        id: id,
-        onIceCandidate: function onIceCandidate(candidate) {
-          _this2._send(MESSAGE.CANDIDATE, {
-            receiver: id,
-            candidate: candidate
-          });
-        }
-      });
-    }
-  }]);
-
-  return Signal;
-}();
-
-var Peer =
-/*#__PURE__*/
-function () {
-  function Peer(_ref) {
-    var localStream = _ref.localStream,
-        _ref$id = _ref.id,
-        id = _ref$id === void 0 ? randombytes(20).toString('hex') : _ref$id,
-        _ref$config = _ref.config,
-        config = _ref$config === void 0 ? CONFIG : _ref$config,
-        _ref$data = _ref.data,
-        data = _ref$data === void 0 ? {} : _ref$data;
-
-    _classCallCheck(this, Peer);
-
-    this._id = id;
-    this._pc = new RTCPeerConnection(config);
-    this._dc = null;
-    this._emitter = new Emitter();
-    this._localSdp = null;
-    this._remoteSdp = null;
-    this._remoteStream = null;
-    this._localStream = localStream;
-    this._isConnected = false;
-    this._data = data;
-
-    this._init();
-  }
-
-  _createClass(Peer, [{
-    key: "createDataChannel",
-    value: function createDataChannel(channelName) {
-      if (!this._pc.createDataChannel) return;
-
-      this._setDataChannel(this._pc.createDataChannel(channelName));
-    }
-  }, {
-    key: "setRemoteDescription",
-    value: function setRemoteDescription(sdp) {
-      this._remoteSdp = sdp;
-      return this._pc.setRemoteDescription(new RTCSessionDescription(this._remoteSdp));
-    }
-  }, {
-    key: "addIceCandidate",
-    value: function addIceCandidate(candidate) {
-      return this._pc.addIceCandidate(candidate);
-    }
-  }, {
-    key: "on",
-    value: function on(eventName, listener) {
-      this._emitter.on(eventName, listener);
-    }
-  }, {
-    key: "once",
-    value: function once(eventName, listener) {
-      this._emitter.once(eventName, listener);
-    }
-  }, {
-    key: "send",
-    value: function send(data) {
-      if (this._dc) this._dc.send(data);
-    }
-  }, {
-    key: "close",
-    value: function close() {
-      this._pc.close();
-
-      _allOff(this._emitter);
-    }
-  }, {
-    key: "_setDataChannel",
-    value: function _setDataChannel(dc) {
-      var _this = this;
-
-      this._dc = dc;
-
-      dc.onmessage = function (_ref2) {
-        var data = _ref2.data;
-        return _this._emitter.emit('data', data);
-      };
-
-      dc.onclose = function () {
-        return _this._emitter.emit('close', 'datachannel');
-      };
-
-      dc.onopen = function () {
-        return _this._emitter.emit('open');
-      };
-
-      dc.onerror = function (error) {
-        if (!_this._emitter.hasListeners(_this._emitter, 'error')) throw error;
-
-        _this._emitter.emit('error', error);
-      };
-    }
-  }, {
-    key: "_init",
-    value: function _init() {
-      var _this2 = this;
-
-      if (this.localStream) {
-        this.localStream.getTracks().forEach(function (track) {
-          return _this2._pc.addTrack(track, _this2.localStream);
-        });
-      }
-
-      this._pc.onicecandidate = function (_ref3) {
-        var candidate = _ref3.candidate;
-        if (candidate) _this2._emitter.emit('onIceCandidate', candidate);
-      };
-
-      this._pc.ontrack = function (_ref4) {
-        var streams = _ref4.streams;
-
-        var _streams = _slicedToArray(streams, 1),
-            stream = _streams[0];
-
-        _this2._remoteStream = stream;
-        if (!_this2._remoteStream) _this2._emitter.emit('stream', _this2._remoteStream);
-      };
-
-      this._pc.ondatachannel = function (_ref5) {
-        var channel = _ref5.channel;
-        return _this2._setDataChannel(channel);
-      };
-
-      this._pc.oniceconnectionstatechange = function () {
-        if (!_this2._isConnected && _this2._pc.iceConnectionState === 'connected') {
-          _this2._isConnected = true;
-
-          _this2._emitter.emit('connect');
-        }
-
-        if (_this2._pc.iceConnectionState === 'disconnected') {
-          _this2._isConnected = false;
-
-          _this2._emitter.emit('close', 'ICE connection');
-        }
-
-        _this2._emitter.emit('updateIceState', _this2._pc.iceConnectionState);
-      };
-    }
-  }, {
-    key: "createOfferSdp",
-    value: function createOfferSdp() {
-      return new Promise(function ($return, $error) {
-        return Promise.resolve(this._pc.createOffer()).then(function ($await_1) {
-          try {
-            this._localSdp = $await_1;
-
-            this._pc.setLocalDescription(this._localSdp);
-
-            return $return(this._localSdp);
-          } catch ($boundEx) {
-            return $error($boundEx);
-          }
-        }.bind(this), $error);
-      }.bind(this));
-    }
-  }, {
-    key: "createAnswerSdp",
-    value: function createAnswerSdp() {
-      return new Promise(function ($return, $error) {
-        return Promise.resolve(this._pc.createAnswer()).then(function ($await_2) {
-          try {
-            this._localSdp = $await_2;
-
-            this._pc.setLocalDescription(this._localSdp);
-
-            return $return(this._localSdp);
-          } catch ($boundEx) {
-            return $error($boundEx);
-          }
-        }.bind(this), $error);
-      }.bind(this));
-    }
-  }, {
-    key: "id",
-    get: function get() {
-      return this._id;
-    }
-  }, {
-    key: "data",
-    get: function get() {
-      return this._data;
-    }
-  }, {
-    key: "localStream",
-    get: function get() {
-      return this._localStream;
-    }
-  }, {
-    key: "remoteStream",
-    get: function get() {
-      return this._remoteStream;
-    }
-  }, {
-    key: "localSdp",
-    get: function get() {
-      return this._localSdp;
-    }
-  }, {
-    key: "remoteSdp",
-    get: function get() {
-      return this._remoteSdp;
-    }
-  }, {
-    key: "senders",
-    get: function get() {
-      return this._pc.getSenders();
-    }
-  }]);
-
-  return Peer;
-}();
-
-var PeerConnector =
-/*#__PURE__*/
-function () {
-  function PeerConnector(_ref) {
-    var stream = _ref.stream,
-        config = _ref.config;
-
-    _classCallCheck(this, PeerConnector);
-
-    this._emitter = new Emitter();
-    this._peers = new Map();
-    this._stream = stream;
-    this._config = config;
-  }
-
-  _createClass(PeerConnector, [{
-    key: "on",
-    value: function on(eventName, listener) {
-      this._emitter.on(eventName, listener);
-    }
-  }, {
-    key: "off",
-    value: function off(eventName, listener) {
-      this._emitter.off(eventName, listener);
-    }
-  }, {
-    key: "allOff",
-    value: function allOff() {
-      _allOff(this._emitter);
-    }
-  }, {
-    key: "createPeer",
-    value: function createPeer(_ref2) {
-      var _this = this;
-
-      var id = _ref2.id,
-          onIceCandidate = _ref2.onIceCandidate,
-          data = _ref2.data;
-      var peer = new Peer({
-        id: id,
-        localStream: this._stream,
-        config: this._config,
-        data: data
-      });
-      peer.on('onIceCandidate', onIceCandidate);
-      peer.on('connect', function () {
-        return _this._emitter.emit('connect', peer);
-      });
-
-      this._peers.set(peer.id, peer);
-
-      return peer;
-    }
-  }, {
-    key: "hasPeer",
-    value: function hasPeer(id) {
-      return this._peers.has(id);
-    }
-  }, {
-    key: "getPeer",
-    value: function getPeer(id) {
-      return this._peers.get(id);
-    }
-  }, {
-    key: "close",
-    value: function close() {
-      if (this._stream) {
-        this._stream.getTracks().forEach(function (track) {
-          return track.stop();
-        });
-      }
-
-      this.allOff();
-    }
-  }, {
-    key: "stream",
-    get: function get() {
-      return this._stream;
-    }
-  }, {
-    key: "peers",
-    get: function get() {
-      return this._peers;
-    }
-  }]);
-
-  return PeerConnector;
-}();
-
-var index = (function (_ref) {
-  return new Promise(function ($return, $error) {
-    var servers, mediaType, stream, config, peerConnector, signal;
-    servers = _ref.servers, mediaType = _ref.mediaType, stream = _ref.stream, config = _ref.config;
-
-    if (!getBrowserRTC()) {
-      return $error(new Error('Not support getUserMedia API'));
-    }
-
-    if (!stream && mediaType) {
-      return Promise.resolve(getMediaStream(mediaType)).then(function ($await_3) {
-        try {
-          stream = $await_3;
-          return $If_1.call(this);
-        } catch ($boundEx) {
-          return $error($boundEx);
-        }
-      }.bind(this), $error);
-    }
-
-    function $If_1() {
-      peerConnector = new PeerConnector({
-        stream: stream,
-        config: config
-      });
-
-      if (servers) {
-        return Promise.resolve(connect$1(servers)).then(function ($await_4) {
-          try {
-            signal = new Signal({
-              peerConnector: peerConnector,
-              config: config,
-              webSocket: $await_4
-            });
-            signal.signaling();
-            return $If_2.call(this);
-          } catch ($boundEx) {
-            return $error($boundEx);
-          }
-        }.bind(this), $error);
-      }
-
-      function $If_2() {
-        return $return(peerConnector);
-      }
-
-      return $If_2.call(this);
-    }
-
-    return $If_1.call(this);
+/**
+ * @param {{ screen: boolean } & MediaStreamConstraints} args
+ * @param {ReturnType<MediaStream>}
+*/
+
+function getMediaStream() {
+  var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+      screen = _ref.screen,
+      video = _ref.video,
+      audio = _ref.audio;
+
+  return screen ? getDisplayMedia() : navigator.mediaDevices.getUserMedia({
+    video: video,
+    audio: audio
   });
-});
-var getMediaStream = function getMediaStream() {
-  var mediaType = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-  return mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType);
-};
+}
 
-var getDisplayMedia = function getDisplayMedia() {
+function getDisplayMedia() {
   if (navigator.getDisplayMedia) {
     return navigator.getDisplayMedia({
       video: true
@@ -831,17 +742,29 @@ var getDisplayMedia = function getDisplayMedia() {
   return navigator.mediaDevices.getUserMedia({
     video: requestScreen()
   });
-};
+}
 
-var getUserMedia = function getUserMedia(_ref2) {
-  var video = _ref2.video,
-      audio = _ref2.audio;
-  if (!video && !audio) return null;
-  return navigator.mediaDevices.getUserMedia({
-    video: video,
-    audio: audio
+/**
+ * @param {string} url
+ * @param {string | string[]} protocols
+ */
+function connectWebsocket(url, protocols) {
+  return new Promise(function (resolve, reject) {
+    var webSocket = new WebSocket(url, protocols);
+
+    webSocket.onopen = function () {
+      return resolve(webSocket);
+    };
+
+    webSocket.onerror = function () {
+      return reject(new Error('connect failed.'));
+    };
   });
-};
+}
 
-exports.default = index;
+exports.default = PeerConnector;
+exports.Peer = Peer;
+exports.Signal = Signal;
+exports.SIGNAL_EVENT = SIGNAL_EVENT;
 exports.getMediaStream = getMediaStream;
+exports.connectWS = connectWebsocket;

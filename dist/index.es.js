@@ -1,36 +1,352 @@
-import { detect } from 'detect-browser';
 import Emitter from 'event-emitter';
-import randombytes from 'randombytes';
 import allOff from 'event-emitter/all-off';
+import nanoid from 'nanoid';
 import getBrowserRTC from 'get-browser-rtc';
+import { detect } from 'detect-browser';
 
-const connect = ({ host, port, username, password, ssl = false }) => new Promise((resolve, reject) => {
-    const accessAuth = username && password ? `${username}:${password}@` : '';
-    const webSocket = new WebSocket(`${ssl ? 'wss' : 'ws'}://${accessAuth}${host}:${port}`);
+class Peer {
+    /**
+     * @param {object} props
+     * @param {MediaStream} [props.stream]
+     * @param {RTCConfiguration} [props.config]
+     * @param {typeof import('./PeerConnector').DEFAULT_OPTION} [props.option]
+     * @param {string} [props.id]
+     */
+    constructor({ stream, config, option, id = nanoid(20) }) {
+        this.id = id;
+        this.localStream = stream;
+        this.remoteStream = null;
+        this.localSdp = null;
+        this.remoteSdp = null;
 
-    webSocket.onopen = () => resolve(webSocket);
-    webSocket.onerror = () => reject(new Error('connect failed.'));
-});
+        this._rtcPeer = new RTCPeerConnection(config);
+        this._dataChannel = null;
+        this._option = option;
+        this._emitter = new Emitter();
+        this._isConnectedPeer = false;
+        this._isConnectedDataChannel = false;
+        this._dataQueue = [];
 
-// eslint-disable-next-line consistent-return
-var connect$1 = async (servers) => {
-    for (const server of servers) {
-        try {
-            return await connect(server);
-        } catch (error) {
-            // eslint-disable-next-line no-continue
-            continue;
-        }
+        this._attachEvents();
     }
+
+    on(eventName, listener) {
+        this._emitter.on(eventName, listener);
+    }
+
+    once(eventName, listener) {
+        this._emitter.once(eventName, listener);
+    }
+
+    off(eventName, listener) {
+        this._emitter.off(eventName, listener);
+    }
+
+    isConnected() {
+        return this._option.dataChannel ?
+            this._isConnectedDataChannel && this._isConnectedPeer :
+            this._isConnectedPeer;
+    }
+
+    getSenders() {
+        return this._rtcPeer.getSenders();
+    }
+
+
+    async createOfferSdp(options) {
+        this.localSdp = await this._rtcPeer.createOffer(options);
+        this._rtcPeer.setLocalDescription(this.localSdp);
+        return this.localSdp;
+    }
+
+    async createAnswerSdp(options) {
+        this.localSdp = await this._rtcPeer.createAnswer(options);
+        this._rtcPeer.setLocalDescription(this.localSdp);
+        return this.localSdp;
+    }
+
+    createDataChannel(channelName) {
+        if (!this._rtcPeer.createDataChannel) return;
+        this._setDataChannel(this._rtcPeer.createDataChannel(channelName));
+    }
+
+    setRemoteDescription(sdp) {
+        this.remoteSdp = sdp;
+        return this._rtcPeer.setRemoteDescription(new RTCSessionDescription(this.remoteSdp));
+    }
+
+    addIceCandidate(candidate) {
+        return this._rtcPeer.addIceCandidate(candidate);
+    }
+
+    send(data) {
+        if (!this._option.dataChannel || !this._dataChannel) return;
+        this._dataChannel.send(data);
+    }
+
+    close() {
+        this._rtcPeer.close();
+        this.destroy();
+    }
+
+    destroy() {
+        allOff(this._emitter);
+    }
+
+    _setDataChannel(dataChannel) {
+        this._dataChannel = dataChannel;
+
+        this._dataChannel.onopen = () => {
+            this._isConnectedDataChannel = true;
+            this._emitConnect();
+        };
+
+        this._dataChannel.onmessage = ({ data }) => {
+            if (!this.isConnected()) {
+                this._dataQueue.push(data);
+                return;
+            }
+
+            this._emitter.emit('data', data);
+        };
+
+        this._dataChannel.onerror = (error) => {
+            if (!this._emitter.hasListeners(this._emitter, 'error')) throw error;
+            this._emitter.emit('error', error);
+        };
+
+        this._dataChannel.onclose = () => this._emitter.emit('close', 'datachannel');
+    }
+
+    _attachEvents() {
+        if (this.localStream) {
+            this.localStream.getTracks().forEach((track) => {
+                this._rtcPeer.addTrack(track, this.localStream);
+            });
+        }
+
+        this._rtcPeer.onicecandidate = ({ candidate }) => {
+            if (candidate) this._emitter.emit('iceCandidate', candidate);
+        };
+
+        this._rtcPeer.ontrack = ({ streams }) => {
+            if (this.remoteStream) return;
+            const [stream] = streams;
+            this._emitter.emit('stream', this.remoteStream = stream);
+        };
+
+        this._rtcPeer.ondatachannel = ({ channel }) => this._setDataChannel(channel);
+
+        this._rtcPeer.oniceconnectionstatechange = () => {
+            const state = this._rtcPeer.iceConnectionState;
+
+            if (state === 'connected') {
+                this._isConnectedPeer = true;
+                this._emitConnect();
+            }
+
+            if (state === 'disconnected') {
+                this._emitter.emit('close', state);
+            }
+
+            this._emitter.emit('updateIceState', state);
+        };
+    }
+
+    _emitConnect() {
+        if (!this.isConnected()) return;
+        this._emitter.emit('connect');
+
+        for (const data of this._dataQueue) {
+            this._emitter.emit('data', data);
+        }
+        this._dataQueue = [];
+    }
+}
+
+const DEFAULT_CONFIG = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 };
 
-const userAgent = detect();
+const DEFAULT_OPTION = {
+    dataChannel: true,
+};
+
+class PeerConnector {
+    /**
+     * @param {object} props
+     * @param {MediaStream} [props.stream]
+     * @param {RTCConfiguration} [props.config]
+     * @param {DEFAULT_OPTION} [props.option]
+     */
+    constructor({ stream, config = DEFAULT_CONFIG, option = DEFAULT_OPTION }) {
+        if (!getBrowserRTC()) {
+            throw new Error('Not support getUserMedia API');
+        }
+
+        this.stream = stream;
+        this.peers = new Map();
+
+        this._config = config;
+        this._option = option;
+        this._emitter = new Emitter();
+    }
+
+    on(eventName, listener) {
+        this._emitter.on(eventName, listener);
+    }
+
+    once(eventName, listener) {
+        this._emitter.once(eventName, listener);
+    }
+
+    off(eventName, listener) {
+        this._emitter.off(eventName, listener);
+    }
+
+    createPeer(id) {
+        const peer = new Peer({ id, stream: this.stream, config: this._config, option: this._option });
+
+        peer.once('connect', () => this._emitter.emit('connect', peer));
+        this.setPeer(peer);
+
+        return peer;
+    }
+
+    hasPeer(id) {
+        return this.peers.has(id);
+    }
+
+    getPeer(id) {
+        return this.peers.get(id);
+    }
+
+    setPeer(peer) {
+        this.peers.set(peer.id, peer);
+    }
+
+    removePeer(id) {
+        return this.peers.delete(id);
+    }
+
+    close() {
+        if (this.stream) {
+            this.stream.getTracks().forEach((track) => track.stop());
+        }
+
+        this.destroy();
+    }
+
+    destroy() {
+        allOff(this._emitter);
+    }
+}
+
+const SIGNAL_EVENT = {
+    JOIN: 'join',
+    REQUEST_CONNECT: 'request-connect',
+    SDP: 'sdp',
+    CANDIDATE: 'candidate',
+};
+class Signal {
+    /**
+     * @param {object} props
+     * @param {WebSocket} props.websocket
+     * @param {string} [props.id]
+     */
+    constructor({ websocket, id = nanoid(20) }) {
+        this.id = id;
+        this._emitter = new Emitter();
+        this._ws = websocket;
+
+        websocket.onmessage = this._onMessage.bind(this);
+    }
+
+    on(eventName, listener) {
+        this._emitter.on(eventName, listener);
+    }
+
+    once(eventName, listener) {
+        this._emitter.once(eventName, listener);
+    }
+
+    off(eventName, listener) {
+        this._emitter.off(eventName, listener);
+    }
+
+    send(event, data = {}) {
+        this._ws.send(JSON.stringify({
+            event,
+            data: {
+                sender: this.id,
+                ...data,
+            },
+        }));
+    }
+
+    autoSignal(peerConnector) {
+        this.send(SIGNAL_EVENT.JOIN);
+
+        this._emitter.on(SIGNAL_EVENT.JOIN, ({ sender }) => {
+            this.send(SIGNAL_EVENT.REQUEST_CONNECT, { receiver: sender });
+        });
+
+        this._emitter.on(SIGNAL_EVENT.REQUEST_CONNECT, async ({ sender }) => {
+            const peer = peerConnector.createPeer(sender);
+
+            peer.createDataChannel(this.id);
+
+            peer.on('iceCandidate', (candidate) => {
+                this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
+            });
+
+            this.send(SIGNAL_EVENT.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
+        });
+
+        this._emitter.on(SIGNAL_EVENT.SDP, async ({ sender, sdp }) => {
+            if (sdp.type === 'answer') {
+                const peer = peerConnector.getPeer(sender);
+                await peer.setRemoteDescription(sdp);
+            } else {
+                const peer = peerConnector.createPeer(sender);
+
+                peer.on('iceCandidate', (candidate) => {
+                    this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
+                });
+
+                await peer.setRemoteDescription(sdp);
+                this.send(SIGNAL_EVENT.SDP, { receiver: peer.id, sdp: await peer.createAnswerSdp() });
+            }
+        });
+
+        this._emitter.on(SIGNAL_EVENT.CANDIDATE, ({ sender, candidate }) => {
+            const peer = peerConnector.getPeer(sender);
+            peer.addIceCandidate(candidate);
+        });
+    }
+
+    destroy() {
+        allOff(this._emitter);
+    }
+
+    _onMessage({ data: message } = {}) {
+        const { event, data } = JSON.parse(message);
+        if (!this._equalId(data)) return;
+
+        this._emitter.emit(event, data);
+        this._emitter.emit('message', { event, data });
+    }
+
+    _equalId(data) {
+        return !data.receiver || data.receiver === this.id;
+    }
+}
 
 const EXTENSION_ID = 'mopiaiibclcaiolndiidmkpejmcpjmcf';
 const EXTENSION_URL = `https://chrome.google.com/webstore/detail/screen-sharing-extension/${EXTENSION_ID}`;
 
-var requestScreen = async () => {
-    switch (userAgent.name) {
+async function requestScreen() {
+    switch (detect().name) {
     case 'firefox':
         return { mediaSource: 'screen' };
     case 'chrome':
@@ -49,332 +365,68 @@ var requestScreen = async () => {
     default:
         throw new Error('not support browser');
     }
-};
+}
 
-const getStreamId = () => new Promise((resolve) => {
-    window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
-    window.addEventListener('message', function listener({ data: { type, streamId } }) {
-        if (type === 'SCREEN_SHARE') {
-            window.removeEventListener('message', listener);
-            resolve(streamId);
-        }
+function getStreamId() {
+    return new Promise((resolve) => {
+        window.postMessage({ type: 'SCREEN_REQUEST', text: 'start' }, '*');
+        window.addEventListener('message', function listener({ data: { type, streamId } }) {
+            if (type === 'SCREEN_SHARE') {
+                window.removeEventListener('message', listener);
+                resolve(streamId);
+            }
 
-        if (type === 'SCREEN_CANCEL') {
-            window.removeEventListener('message', listener);
-            resolve(false);
-        }
+            if (type === 'SCREEN_CANCEL') {
+                window.removeEventListener('message', listener);
+                resolve(false);
+            }
+        });
     });
-});
-
-const isInstalledExtension = () => new Promise((resolve) => {
-    const img = document.createElement('img');
-    img.src = `chrome-extension://${EXTENSION_ID}/icon.png`;
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-});
-
-const CONFIG = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-};
-
-const MESSAGE = {
-    JOIN: '/PEER_CONNECTOR/join',
-    REQUEST_CONNECT: '/PEER_CONNECTOR/request/peer-connect',
-    SDP: '/PEER_CONNECTOR/sdp',
-    CANDIDATE: '/PEER_CONNECTOR/candidate',
-};
-
-class Signal {
-    constructor({ webSocket, peerConnector }) {
-        this._emitter = new Emitter();
-        this._ws = webSocket;
-        this._id = randombytes(20).toString('hex');
-        this._pc = peerConnector;
-
-        webSocket.onmessage = this._onMessage.bind(this);
-    }
-
-    _on(eventName, listener) {
-        this._emitter.on(eventName, listener);
-    }
-
-    _onMessage(message) {
-        if (!message) return;
-        const { event, data } = JSON.parse(message.data);
-        if (this._equalId(data)) this._emitter.emit(event, data);
-    }
-
-    _send(event, data = {}) {
-        this._ws.send(JSON.stringify({
-            event,
-            data: { ...data, sender: this._id },
-        }));
-    }
-
-    _equalId(data) {
-        return !data.receiver || data.receiver === this._id;
-    }
-
-    signaling() {
-        this._send(MESSAGE.JOIN);
-
-        this._on(MESSAGE.JOIN, ({ sender }) => {
-            this._send(MESSAGE.REQUEST_CONNECT, { receiver: sender });
-        });
-
-        this._on(MESSAGE.REQUEST_CONNECT, async ({ sender }) => {
-            const peer = this._createPeer(sender);
-            peer.createDataChannel(this._id);
-            this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
-        });
-
-        this._on(MESSAGE.SDP, async ({ sender, sdp }) => {
-            const peer = this._pc.hasPeer(sender) ? this._pc.getPeer(sender) : this._createPeer(sender);
-            await peer.setRemoteDescription(sdp);
-
-            if (sdp.type === 'offer') {
-                this._send(MESSAGE.SDP, { receiver: peer.id, sdp: await peer.createAnswerSdp() });
-            }
-        });
-
-        this._on(MESSAGE.CANDIDATE, ({ sender, candidate }) => {
-            const peer = this._pc.hasPeer(sender) ? this._pc.getPeer(sender) : this._createPeer(sender);
-            peer.addIceCandidate(candidate);
-        });
-    }
-
-    _createPeer(id) {
-        return this._pc.createPeer({
-            id,
-            onIceCandidate: (candidate) => {
-                this._send(MESSAGE.CANDIDATE, { receiver: id, candidate });
-            },
-        });
-    }
 }
 
-class Peer {
-    constructor({ localStream, id = randombytes(20).toString('hex'), config = CONFIG, data = {} }) {
-        this._id = id;
-        this._pc = new RTCPeerConnection(config);
-        this._dc = null;
-        this._emitter = new Emitter();
-        this._localSdp = null;
-        this._remoteSdp = null;
-        this._remoteStream = null;
-        this._localStream = localStream;
-        this._isConnected = false;
-        this._data = data;
-
-        this._init();
-    }
-
-    get id() {
-        return this._id;
-    }
-
-    get data() {
-        return this._data;
-    }
-
-    get localStream() {
-        return this._localStream;
-    }
-
-    get remoteStream() {
-        return this._remoteStream;
-    }
-
-    get localSdp() {
-        return this._localSdp;
-    }
-
-    get remoteSdp() {
-        return this._remoteSdp;
-    }
-
-    get senders() {
-        return this._pc.getSenders();
-    }
-
-    createDataChannel(channelName) {
-        if (!this._pc.createDataChannel) return;
-        this._setDataChannel(this._pc.createDataChannel(channelName));
-    }
-
-    setRemoteDescription(sdp) {
-        this._remoteSdp = sdp;
-        return this._pc.setRemoteDescription(new RTCSessionDescription(this._remoteSdp));
-    }
-
-    addIceCandidate(candidate) {
-        return this._pc.addIceCandidate(candidate);
-    }
-
-    on(eventName, listener) {
-        this._emitter.on(eventName, listener);
-    }
-
-    once(eventName, listener) {
-        this._emitter.once(eventName, listener);
-    }
-
-    send(data) {
-        if (this._dc) this._dc.send(data);
-    }
-
-    close() {
-        this._pc.close();
-        allOff(this._emitter);
-    }
-
-    _setDataChannel(dc) {
-        this._dc = dc;
-
-        dc.onmessage = ({ data }) => this._emitter.emit('data', data);
-        dc.onclose = () => this._emitter.emit('close', 'datachannel');
-        dc.onopen = () => this._emitter.emit('open');
-        dc.onerror = (error) => {
-            if (!this._emitter.hasListeners(this._emitter, 'error')) throw error;
-            this._emitter.emit('error', error);
-        };
-    }
-
-    _init() {
-        if (this.localStream) {
-            this.localStream.getTracks().forEach((track) => this._pc.addTrack(track, this.localStream));
-        }
-
-        this._pc.onicecandidate = ({ candidate }) => {
-            if (candidate) this._emitter.emit('onIceCandidate', candidate);
-        };
-
-        this._pc.ontrack = ({ streams }) => {
-            const [stream] = streams;
-            this._remoteStream = stream;
-            if (!this._remoteStream) this._emitter.emit('stream', this._remoteStream);
-        };
-
-        this._pc.ondatachannel = ({ channel }) => this._setDataChannel(channel);
-
-        this._pc.oniceconnectionstatechange = () => {
-            if (!this._isConnected && this._pc.iceConnectionState === 'connected') {
-                this._isConnected = true;
-                this._emitter.emit('connect');
-            }
-
-            if (this._pc.iceConnectionState === 'disconnected') {
-                this._isConnected = false;
-                this._emitter.emit('close', 'ICE connection');
-            }
-
-            this._emitter.emit('updateIceState', this._pc.iceConnectionState);
-        };
-    }
-
-    async createOfferSdp() {
-        this._localSdp = await this._pc.createOffer();
-        this._pc.setLocalDescription(this._localSdp);
-        return this._localSdp;
-    }
-
-    async createAnswerSdp() {
-        this._localSdp = await this._pc.createAnswer();
-        this._pc.setLocalDescription(this._localSdp);
-        return this._localSdp;
-    }
+function isInstalledExtension() {
+    return new Promise((resolve) => {
+        const img = document.createElement('img');
+        img.src = `chrome-extension://${EXTENSION_ID}/icon.png`;
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+    });
 }
 
-class PeerConnector {
-    constructor({ stream, config }) {
-        this._emitter = new Emitter();
-        this._peers = new Map();
-        this._stream = stream;
-        this._config = config;
-    }
-
-    on(eventName, listener) {
-        this._emitter.on(eventName, listener);
-    }
-
-    off(eventName, listener) {
-        this._emitter.off(eventName, listener);
-    }
-
-    allOff() {
-        allOff(this._emitter);
-    }
-
-    get stream() {
-        return this._stream;
-    }
-
-    get peers() {
-        return this._peers;
-    }
-
-    createPeer({ id, onIceCandidate, data }) {
-        const peer = new Peer({ id, localStream: this._stream, config: this._config, data });
-
-        peer.on('onIceCandidate', onIceCandidate);
-        peer.on('connect', () => this._emitter.emit('connect', peer));
-
-        this._peers.set(peer.id, peer);
-
-        return peer;
-    }
-
-    hasPeer(id) {
-        return this._peers.has(id);
-    }
-
-    getPeer(id) {
-        return this._peers.get(id);
-    }
-
-    close() {
-        if (this._stream) {
-            this._stream.getTracks().forEach((track) => track.stop());
-        }
-
-        this.allOff();
-    }
+/**
+ * @param {{ screen: boolean } & MediaStreamConstraints} args
+ * @param {ReturnType<MediaStream>}
+*/
+function getMediaStream({ screen, video, audio } = {}) {
+    return screen ?
+        getDisplayMedia() :
+        navigator.mediaDevices.getUserMedia({ video, audio });
 }
 
-var index = async ({ servers, mediaType, stream, config }) => {
-    if (!getBrowserRTC()) {
-        throw new Error('Not support getUserMedia API');
-    }
-
-    if (!stream && mediaType) {
-        stream = await getMediaStream(mediaType);
-    }
-
-    const peerConnector = new PeerConnector({ stream, config });
-
-    if (servers) {
-        const signal = new Signal({ peerConnector, config, webSocket: await connect$1(servers) });
-        signal.signaling();
-    }
-
-    return peerConnector;
-};
-
-const getMediaStream = (mediaType = {}) => (mediaType.screen ? getDisplayMedia() : getUserMedia(mediaType));
-
-const getDisplayMedia = () => {
+function getDisplayMedia() {
     if (navigator.getDisplayMedia) {
         return navigator.getDisplayMedia({ video: true });
-    } if (navigator.mediaDevices.getDisplayMedia) {
+    }
+
+    if (navigator.mediaDevices.getDisplayMedia) {
         return navigator.mediaDevices.getDisplayMedia({ video: true });
     }
+
     return navigator.mediaDevices.getUserMedia({ video: requestScreen() });
-};
+}
 
-const getUserMedia = ({ video, audio }) => {
-    if (!video && !audio) return null;
-    return navigator.mediaDevices.getUserMedia({ video, audio });
-};
+/**
+ * @param {string} url
+ * @param {string | string[]} protocols
+ */
+function connectWebsocket(url, protocols) {
+    return new Promise((resolve, reject) => {
+        const webSocket = new WebSocket(url, protocols);
 
-export default index;
-export { getMediaStream };
+        webSocket.onopen = () => resolve(webSocket);
+        webSocket.onerror = () => reject(new Error('connect failed.'));
+    });
+}
+
+export default PeerConnector;
+export { Peer, Signal, SIGNAL_EVENT, getMediaStream, connectWebsocket as connectWS };
