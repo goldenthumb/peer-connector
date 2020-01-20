@@ -3,12 +3,22 @@ import Emitter from 'event-emitter';
 import allOff from 'event-emitter/all-off';
 import Peer from './Peer';
 
-const DEFAULT_CONFIG = {
+export const DEFAULT_CONFIG = {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 };
 
+export const DEFAULT_OPTION = {
+    dataChannel: true,
+};
+
 export default class PeerConnector {
-    constructor({ stream, config = DEFAULT_CONFIG }) {
+    /**
+     * @param {object} props
+     * @param {MediaStream} [props.stream]
+     * @param {RTCConfiguration} [props.config]
+     * @param {DEFAULT_OPTION} [props.option]
+     */
+    constructor({ stream, config = DEFAULT_CONFIG, option = DEFAULT_OPTION }) {
         if (!getBrowserRTC()) {
             throw new Error('Not support getUserMedia API');
         }
@@ -17,6 +27,7 @@ export default class PeerConnector {
         this.peers = new Map();
 
         this._config = config;
+        this._option = option;
         this._emitter = new Emitter();
     }
 
@@ -24,15 +35,19 @@ export default class PeerConnector {
         this._emitter.on(eventName, listener);
     }
 
+    once(eventName, listener) {
+        this._emitter.once(eventName, listener);
+    }
+
     off(eventName, listener) {
         this._emitter.off(eventName, listener);
     }
 
     createPeer(id) {
-        const peer = new Peer({ id, stream: this.stream, config: this._config });
+        const peer = new Peer({ id, stream: this.stream, config: this._config, option: this._option });
 
-        peer.on('connect', () => this._emitter.emit('connect', peer));
-        this.peers.set(peer.id, peer);
+        peer.once('connect', () => this._emitter.emit('connect', peer));
+        this.setPeer(peer);
 
         return peer;
     }
@@ -43,6 +58,14 @@ export default class PeerConnector {
 
     getPeer(id) {
         return this.peers.get(id);
+    }
+
+    setPeer(peer) {
+        this.peers.set(peer.id, peer);
+    }
+
+    removePeer(id) {
+        return this.peers.delete(id);
     }
 
     close() {

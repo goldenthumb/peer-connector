@@ -1,5 +1,6 @@
 import EventEmitter from 'event-emitter';
-import randombytes from 'randombytes';
+import allOff from 'event-emitter/all-off';
+import nanoid from 'nanoid';
 
 export const SIGNAL_EVENT = {
     JOIN: 'join',
@@ -8,25 +9,42 @@ export const SIGNAL_EVENT = {
     CANDIDATE: 'candidate',
 };
 export default class Signal {
-    constructor({ websocket, id = randombytes(20).toString('hex') }) {
+    /**
+     * @param {object} props
+     * @param {WebSocket} props.websocket
+     * @param {string} [props.id]
+     */
+    constructor({ websocket, id = nanoid(20) }) {
+        this.id = id;
         this._emitter = new EventEmitter();
         this._ws = websocket;
-        this._id = id;
 
         websocket.onmessage = this._onMessage.bind(this);
+    }
+
+    on(eventName, listener) {
+        this._emitter.on(eventName, listener);
+    }
+
+    once(eventName, listener) {
+        this._emitter.once(eventName, listener);
+    }
+
+    off(eventName, listener) {
+        this._emitter.off(eventName, listener);
     }
 
     send(event, data = {}) {
         this._ws.send(JSON.stringify({
             event,
             data: {
-                sender: this._id,
+                sender: this.id,
                 ...data,
             },
         }));
     }
 
-    autoSignaling(peerConnector) {
+    autoSignal(peerConnector) {
         this.send(SIGNAL_EVENT.JOIN);
 
         this._emitter.on(SIGNAL_EVENT.JOIN, ({ sender }) => {
@@ -36,11 +54,12 @@ export default class Signal {
         this._emitter.on(SIGNAL_EVENT.REQUEST_CONNECT, async ({ sender }) => {
             const peer = peerConnector.createPeer(sender);
 
-            peer.on('onIceCandidate', (candidate) => {
+            peer.createDataChannel(this.id);
+
+            peer.on('iceCandidate', (candidate) => {
                 this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
             });
 
-            peer.createDataChannel(this._id);
             this.send(SIGNAL_EVENT.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
         });
 
@@ -51,7 +70,7 @@ export default class Signal {
             } else {
                 const peer = peerConnector.createPeer(sender);
 
-                peer.on('onIceCandidate', (candidate) => {
+                peer.on('iceCandidate', (candidate) => {
                     this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
                 });
 
@@ -66,6 +85,10 @@ export default class Signal {
         });
     }
 
+    destroy() {
+        allOff(this._emitter);
+    }
+
     _onMessage({ data: message } = {}) {
         const { event, data } = JSON.parse(message);
         if (!this._equalId(data)) return;
@@ -75,6 +98,6 @@ export default class Signal {
     }
 
     _equalId(data) {
-        return !data.receiver || data.receiver === this._id;
+        return !data.receiver || data.receiver === this.id;
     }
 }

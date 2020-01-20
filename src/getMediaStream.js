@@ -1,6 +1,10 @@
 import requestScreen from './requestScreen';
 
-export default function getMediaStream({ screen = false, video = true, audio = true }) {
+/**
+ * @param {{ screen: boolean } & MediaStreamConstraints} args
+ * @param {ReturnType<MediaStream>}
+*/
+export default function getMediaStream({ screen, video, audio } = {}) {
     return screen ?
         getDisplayMedia() :
         navigator.mediaDevices.getUserMedia({ video, audio });

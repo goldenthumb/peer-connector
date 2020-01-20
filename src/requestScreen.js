@@ -3,10 +3,8 @@ import { detect } from 'detect-browser';
 const EXTENSION_ID = 'mopiaiibclcaiolndiidmkpejmcpjmcf';
 const EXTENSION_URL = `https://chrome.google.com/webstore/detail/screen-sharing-extension/${EXTENSION_ID}`;
 
-export default async () => {
-    const { name } = detect();
-
-    switch (name) {
+export default async function requestScreen() {
+    switch (detect().name) {
     case 'firefox':
         return { mediaSource: 'screen' };
     case 'chrome':
@@ -25,7 +23,7 @@ export default async () => {
     default:
         throw new Error('not support browser');
     }
-};
+}
 
 function getStreamId() {
     return new Promise((resolve) => {

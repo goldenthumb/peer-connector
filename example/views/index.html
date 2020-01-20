@@ -8,10 +8,15 @@
     <video id="localVideo" autoplay style="width:33%;"></video>
 </div>
 <br />
-<input type="radio" name="media-type" value="video" checked> camera
-<input type="radio" name="media-type" value="screen"> desktop screen
-<button id="connect">start</button>
+<div id="connect-group">
+    <input type="radio" name="media-type" value="video" checked> video and audio
+    <input type="radio" name="media-type" value="screen"> desktop screen
+    <input type="radio" name="media-type" value="none"> receive only
+    <button id="connect">start</button>
+</div>
 <hr />
+<input id="message-input" type="text" style="display: none" />
+<button id="send" style="display: none">send</button>
 <div id="messages"></div>
 <script src="/dist/js/app.min.js"></script>
 </body>
