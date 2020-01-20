@@ -767,4 +767,4 @@ exports.Peer = Peer;
 exports.Signal = Signal;
 exports.SIGNAL_EVENT = SIGNAL_EVENT;
 exports.getMediaStream = getMediaStream;
-exports.connectWS = connectWebsocket;
+exports.connectWebsocket = connectWebsocket;

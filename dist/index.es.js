@@ -429,4 +429,4 @@ function connectWebsocket(url, protocols) {
 }
 
 export default PeerConnector;
-export { Peer, Signal, SIGNAL_EVENT, getMediaStream, connectWebsocket as connectWS };
+export { Peer, Signal, SIGNAL_EVENT, getMediaStream, connectWebsocket };

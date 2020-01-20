@@ -1,6 +1,6 @@
 {
     "name": "peer-connector",
-    "version": "0.8.0",
+    "version": "0.8.1",
     "description": "A module to accept and request WebRTC multi connections by using WebSockets.",
     "main": "./dist/index.cjs",
     "module": "./dist/index.es",
@@ -24,7 +24,6 @@
         "build-umd": "poi ./src/index.js --prod --format umd --out-dir dist --module-name PeerConnector",
         "lint": "eslint 'src/**/*.js' && eslint 'example/src/**/*.js'",
         "lint-fix": "eslint --fix 'src/**/*.js' && eslint --fix 'example/src/**/*.js'",
-        "prepublishOnly": "npm run build",
         "precommit-msg": "echo 'Pre-commit checks...'"
     },
     "eslintConfig": {
