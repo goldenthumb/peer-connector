@@ -12,5 +12,4 @@ const config = {
 };
 
 config.output.filename = 'app.min.js';
-
 module.exports = config;
