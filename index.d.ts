@@ -79,6 +79,7 @@ declare class Signal {
 declare const peerConnector: {
     default: { new (props: PeerConnectorProps): PeerConnector };
     PeerConnector: { new (props: PeerConnectorProps): PeerConnector };
+    Peer: { new (props: PeerProps): Peer };
     Signal: { new (props: SignalProps): Signal };
     SIGNAL_EVENT: SignalEvent;
     getMediaStream({ screen, video, audio }: StreamConstraints): Promise<MediaStream>
