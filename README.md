@@ -29,7 +29,12 @@ Now open this URL in your browser: http://localhost:3000/
 Please refer to the file. (example/src/index.js)
 
 ```js
-import { PeerConnector, getMediaStream, connectWebsocket, Signal } from 'peer-connector';
+import { 
+    PeerConnector, 
+    getMediaStream, 
+    connectWebsocket, 
+    Signal,
+} from 'peer-connector';
 
 (async () => {
     const stream = await getMediaStream({ video: true, audio: true });
@@ -62,7 +67,14 @@ import { PeerConnector, getMediaStream, connectWebsocket, Signal } from 'peer-co
 You can implement the signaling logic as you wish. (Using websocket and MQTT or other) <br>
 
 ```js
-import { PeerConnector, Peer, getMediaStream, connectWebsocket, Signal, SIGNAL_EVENT } from 'peer-connector';
+import { 
+    PeerConnector, 
+    Peer, 
+    getMediaStream, 
+    connectWebsocket, 
+    Signal, 
+    SIGNAL_EVENT 
+} from 'peer-connector';
 
 (async () => {
     const stream = await getMediaStream(mediaType);
@@ -83,10 +95,16 @@ import { PeerConnector, Peer, getMediaStream, connectWebsocket, Signal, SIGNAL_E
         peer.createDataChannel(peerConnector.channelName);
 
         peer.on('iceCandidate', (candidate) => {
-            signal.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
+            signal.send(SIGNAL_EVENT.CANDIDATE, { 
+                receiver: peer.id, 
+                candidate, 
+            });
         });
 
-        signal.send(SIGNAL_EVENT.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
+        signal.send(SIGNAL_EVENT.SDP, { 
+            receiver: peer.id, 
+            sdp: await peer.createOfferSdp(), 
+        });
     });
 
     signal.on(SIGNAL_EVENT.SDP, async ({ sender, sdp }) => {
@@ -98,11 +116,17 @@ import { PeerConnector, Peer, getMediaStream, connectWebsocket, Signal, SIGNAL_E
             peerConnector.addPeer(peer);
 
             peer.on('iceCandidate', (candidate) => {
-                signal.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
+                signal.send(SIGNAL_EVENT.CANDIDATE, { 
+                    receiver: peer.id, 
+                    candidate, 
+                });
             });
 
             await peer.setRemoteDescription(sdp);
-            signal.send(SIGNAL_EVENT.SDP, { receiver: peer.id, sdp: await peer.createAnswerSdp() });
+            signal.send(SIGNAL_EVENT.SDP, { 
+                receiver: peer.id, 
+                sdp: await peer.createAnswerSdp() 
+            });
         }
     });
 
