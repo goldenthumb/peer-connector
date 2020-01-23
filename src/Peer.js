@@ -2,15 +2,19 @@ import Emitter from 'event-emitter';
 import allOff from 'event-emitter/all-off';
 import nanoid from 'nanoid';
 
+export const DEFAULT_CONFIG = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+};
+
 export default class Peer {
     /**
      * @param {object} props
+     * @param {string} [props.id]
      * @param {MediaStream} [props.stream]
      * @param {RTCConfiguration} [props.config]
-     * @param {typeof import('./PeerConnector').DEFAULT_OPTION} [props.option]
-     * @param {string} [props.id]
+     * @param {boolean} [props.channel]
      */
-    constructor({ stream, config, option, id = nanoid(20) }) {
+    constructor({ stream = false, id = nanoid(20), channel = true, config = DEFAULT_CONFIG } = {}) {
         this.id = id;
         this.localStream = stream;
         this.remoteStream = null;
@@ -18,8 +22,8 @@ export default class Peer {
         this.remoteSdp = null;
 
         this._rtcPeer = new RTCPeerConnection(config);
+        this._useDataChannel = channel;
         this._dataChannel = null;
-        this._option = option;
         this._emitter = new Emitter();
         this._isConnectedPeer = false;
         this._isConnectedDataChannel = false;
@@ -41,7 +45,7 @@ export default class Peer {
     }
 
     isConnected() {
-        return this._option.dataChannel ?
+        return this._useDataChannel ?
             this._isConnectedDataChannel && this._isConnectedPeer :
             this._isConnectedPeer;
     }
@@ -49,7 +53,6 @@ export default class Peer {
     getSenders() {
         return this._rtcPeer.getSenders();
     }
-
 
     async createOfferSdp(options) {
         this.localSdp = await this._rtcPeer.createOffer(options);
@@ -63,9 +66,11 @@ export default class Peer {
         return this.localSdp;
     }
 
-    createDataChannel(channelName) {
+    createDataChannel(channelName, dataChannelDict) {
+        if (!this._useDataChannel) return;
         if (!this._rtcPeer.createDataChannel) return;
-        this._setDataChannel(this._rtcPeer.createDataChannel(channelName));
+
+        this._setDataChannel(this._rtcPeer.createDataChannel(channelName, dataChannelDict));
     }
 
     setRemoteDescription(sdp) {
@@ -78,7 +83,7 @@ export default class Peer {
     }
 
     send(data) {
-        if (!this._option.dataChannel || !this._dataChannel) return;
+        if (!this._useDataChannel || !this._dataChannel) return;
         this._dataChannel.send(data);
     }
 
@@ -147,7 +152,7 @@ export default class Peer {
                 this._emitter.emit('close', state);
             }
 
-            this._emitter.emit('updateIceState', state);
+            this._emitter.emit('changeIceState', state);
         };
     }
 

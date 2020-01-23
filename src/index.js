@@ -6,6 +6,7 @@ import connectWebsocket from './connectWebsocket';
 
 export default PeerConnector;
 export {
+    PeerConnector,
     Peer,
     Signal,
     SIGNAL_EVENT,

@@ -1,10 +1,11 @@
 import EventEmitter from 'event-emitter';
 import allOff from 'event-emitter/all-off';
 import nanoid from 'nanoid';
+import Peer from './Peer';
 
 export const SIGNAL_EVENT = {
     JOIN: 'join',
-    REQUEST_CONNECT: 'request-connect',
+    REQUEST_CONNECT: 'requestConnect',
     SDP: 'sdp',
     CANDIDATE: 'candidate',
 };
@@ -44,6 +45,7 @@ export default class Signal {
         }));
     }
 
+    /** @param {import('./PeerConnector').default} peerConnector */
     autoSignal(peerConnector) {
         this.send(SIGNAL_EVENT.JOIN);
 
@@ -52,9 +54,11 @@ export default class Signal {
         });
 
         this._emitter.on(SIGNAL_EVENT.REQUEST_CONNECT, async ({ sender }) => {
-            const peer = peerConnector.createPeer(sender);
+            const { stream, config, channel, channelName, channelConfig } = peerConnector;
+            const peer = new Peer({ id: sender, stream, config, channel });
+            peerConnector.addPeer(peer);
 
-            peer.createDataChannel(this.id);
+            peer.createDataChannel(channelName, channelConfig);
 
             peer.on('iceCandidate', (candidate) => {
                 this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
@@ -68,7 +72,9 @@ export default class Signal {
                 const peer = peerConnector.getPeer(sender);
                 await peer.setRemoteDescription(sdp);
             } else {
-                const peer = peerConnector.createPeer(sender);
+                const { stream, config, channel } = peerConnector;
+                const peer = new Peer({ id: sender, stream, config, channel });
+                peerConnector.addPeer(peer);
 
                 peer.on('iceCandidate', (candidate) => {
                     this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });

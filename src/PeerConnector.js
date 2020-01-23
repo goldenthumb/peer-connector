@@ -1,33 +1,24 @@
-import getBrowserRTC from 'get-browser-rtc';
 import Emitter from 'event-emitter';
 import allOff from 'event-emitter/all-off';
-import Peer from './Peer';
-
-export const DEFAULT_CONFIG = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-};
-
-export const DEFAULT_OPTION = {
-    dataChannel: true,
-};
+import nanoid from 'nanoid';
 
 export default class PeerConnector {
     /**
-     * @param {object} props
+     * @param {object} [props]
      * @param {MediaStream} [props.stream]
      * @param {RTCConfiguration} [props.config]
-     * @param {DEFAULT_OPTION} [props.option]
+     * @param {boolean} [props.channel]
+     * @param {string} [props.channelName]
+     * @param {RTCDataChannelInit} [props.channelConfig]
      */
-    constructor({ stream, config = DEFAULT_CONFIG, option = DEFAULT_OPTION }) {
-        if (!getBrowserRTC()) {
-            throw new Error('Not support getUserMedia API');
-        }
-
+    constructor({ stream = false, config, channel = true, channelName = nanoid(20), channelConfig = {} } = {}) {
         this.stream = stream;
         this.peers = new Map();
+        this.config = config;
+        this.channel = channel;
+        this.channelName = channelName;
+        this.channelConfig = channelConfig;
 
-        this._config = config;
-        this._option = option;
         this._emitter = new Emitter();
     }
 
@@ -43,13 +34,14 @@ export default class PeerConnector {
         this._emitter.off(eventName, listener);
     }
 
-    createPeer(id) {
-        const peer = new Peer({ id, stream: this.stream, config: this._config, option: this._option });
-
+    addPeer(peer) {
         peer.once('connect', () => this._emitter.emit('connect', peer));
-        this.setPeer(peer);
-
+        this.peers.set(peer.id, peer);
         return peer;
+    }
+
+    removePeer(id) {
+        return this.peers.delete(id);
     }
 
     hasPeer(id) {
@@ -60,17 +52,9 @@ export default class PeerConnector {
         return this.peers.get(id);
     }
 
-    setPeer(peer) {
-        this.peers.set(peer.id, peer);
-    }
-
-    removePeer(id) {
-        return this.peers.delete(id);
-    }
-
-    close() {
-        if (this.stream) {
-            this.stream.getTracks().forEach((track) => track.stop());
+    close(stream = this.stream) {
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
         }
 
         this.destroy();

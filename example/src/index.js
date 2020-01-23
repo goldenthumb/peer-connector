@@ -1,7 +1,7 @@
 /* eslint-disable no-alert */
 /* eslint-disable no-console */
 
-import PeerConnector, { getMediaStream, connectWebsocket, Signal } from '../../src';
+import { PeerConnector, getMediaStream, connectWebsocket, Signal } from '../../src';
 
 const $local = document.getElementById('localVideo');
 const $connectGroup = document.getElementById('connect-group');
@@ -25,7 +25,7 @@ $connect.addEventListener('click', async () => {
         $local.srcObject = stream;
 
         const peerConnector = new PeerConnector({ stream });
-        const signal = new Signal({ websocket: await connectWebsocket('ws://localhost:1234') });
+        const signal = new Signal({ websocket: await connectWebsocket('wss://localhost:1234') });
 
         signal.autoSignal(peerConnector);
 
@@ -44,7 +44,6 @@ $connect.addEventListener('click', async () => {
 
             peer.on('data', (data) => {
                 console.log('data (data channel) : ', data);
-
                 const p = document.createElement('p');
                 p.innerHTML = data;
                 $messages.appendChild(p);

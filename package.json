@@ -63,7 +63,6 @@
     "dependencies": {
         "detect-browser": "^3.0.1",
         "event-emitter": "^0.3.5",
-        "get-browser-rtc": "^1.0.2",
         "nanoid": "^2.1.9"
     },
     "author": "goldenthumb",

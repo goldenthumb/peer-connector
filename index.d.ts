@@ -1,18 +1,16 @@
-interface Option {
-    dataChannel: boolean;
-}
-
 interface PeerProps {
+    id?: string;
     stream?: MediaStream;
     config?: RTCConfiguration;
-    option?: Option;
-    id?: string;
+    channel?: boolean;
 }
 
 interface PeerConnectorProps {
     stream?: MediaStream;
     config?: RTCConfiguration;
-    option?: Option;
+    channel?: boolean;
+    channelName?: string;
+    channelConfig: RTCDataChannelInit;
 }
 
 interface SignalProps {
@@ -39,7 +37,7 @@ interface StreamConstraints {
 }
 
 declare class Peer {
-    constructor({ stream, config, id }: PeerProps);
+    constructor(props: PeerProps);
     on(eventName: string, listener: (props: any) => void): void;
     once(eventName: string, listener: (props: any) => void): void;
     off(eventName: string, listener: (props: any) => void): void;
@@ -56,21 +54,20 @@ declare class Peer {
 }
 
 declare class PeerConnector {
-    constructor({ stream, config, option }: PeerConnectorProps);
+    constructor(props: PeerConnectorProps);
     on(eventName: string, listener: (props: any) => void): void;
     once(eventName: string, listener: (props: any) => void): void;
     off(eventName: string, listener: (props: any) => void): void;
-    createPeer(id: string): Promise<Peer>;
+    addPeer(peer: Peer): void;
+    removePeer(id: string): Peer;
     hasPeer(id: string): Peer;
     getPeer(id: string): Peer;
-    setPeer(peer: Peer): void;
-    removePeer(id: string): Peer;
     close(): void;
     destroy(): void;
 }
 
 declare class Signal {
-    constructor({ websocket, id }: SignalProps);
+    constructor(props: SignalProps);
     on(eventName: string, listener: (props: any) => void): void;
     once(eventName: string, listener: (props: any) => void): void;
     off(eventName: string, listener: (props: any) => void): void;
@@ -80,8 +77,9 @@ declare class Signal {
 }
 
 declare const peerConnector: {
-    default: PeerConnector;
-    Signal: Signal;
+    default: { new (props: PeerConnectorProps): PeerConnector };
+    PeerConnector: { new (props: PeerConnectorProps): PeerConnector };
+    Signal: { new (props: SignalProps): Signal };
     SIGNAL_EVENT: SignalEvent;
     getMediaStream({ screen, video, audio }: StreamConstraints): Promise<MediaStream>
     connectWebsocket(url: string, protocols: string | string[]): Promise<WebSocket>;
