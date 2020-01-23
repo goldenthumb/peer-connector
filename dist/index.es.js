@@ -1,18 +1,84 @@
 import Emitter from 'event-emitter';
 import allOff from 'event-emitter/all-off';
 import nanoid from 'nanoid';
-import getBrowserRTC from 'get-browser-rtc';
 import { detect } from 'detect-browser';
+
+class PeerConnector {
+    /**
+     * @param {object} [props]
+     * @param {MediaStream} [props.stream]
+     * @param {RTCConfiguration} [props.config]
+     * @param {boolean} [props.channel]
+     * @param {string} [props.channelName]
+     * @param {RTCDataChannelInit} [props.channelConfig]
+     */
+    constructor({ stream = false, config, channel = true, channelName = nanoid(20), channelConfig = {} } = {}) {
+        this.stream = stream;
+        this.peers = new Map();
+        this.config = config;
+        this.channel = channel;
+        this.channelName = channelName;
+        this.channelConfig = channelConfig;
+
+        this._emitter = new Emitter();
+    }
+
+    on(eventName, listener) {
+        this._emitter.on(eventName, listener);
+    }
+
+    once(eventName, listener) {
+        this._emitter.once(eventName, listener);
+    }
+
+    off(eventName, listener) {
+        this._emitter.off(eventName, listener);
+    }
+
+    addPeer(peer) {
+        peer.once('connect', () => this._emitter.emit('connect', peer));
+        this.peers.set(peer.id, peer);
+        return peer;
+    }
+
+    removePeer(id) {
+        return this.peers.delete(id);
+    }
+
+    hasPeer(id) {
+        return this.peers.has(id);
+    }
+
+    getPeer(id) {
+        return this.peers.get(id);
+    }
+
+    close(stream = this.stream) {
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+        }
+
+        this.destroy();
+    }
+
+    destroy() {
+        allOff(this._emitter);
+    }
+}
+
+const DEFAULT_CONFIG = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+};
 
 class Peer {
     /**
      * @param {object} props
+     * @param {string} [props.id]
      * @param {MediaStream} [props.stream]
      * @param {RTCConfiguration} [props.config]
-     * @param {typeof import('./PeerConnector').DEFAULT_OPTION} [props.option]
-     * @param {string} [props.id]
+     * @param {boolean} [props.channel]
      */
-    constructor({ stream, config, option, id = nanoid(20) }) {
+    constructor({ stream = false, id = nanoid(20), channel = true, config = DEFAULT_CONFIG } = {}) {
         this.id = id;
         this.localStream = stream;
         this.remoteStream = null;
@@ -20,8 +86,8 @@ class Peer {
         this.remoteSdp = null;
 
         this._rtcPeer = new RTCPeerConnection(config);
+        this._useDataChannel = channel;
         this._dataChannel = null;
-        this._option = option;
         this._emitter = new Emitter();
         this._isConnectedPeer = false;
         this._isConnectedDataChannel = false;
@@ -43,7 +109,7 @@ class Peer {
     }
 
     isConnected() {
-        return this._option.dataChannel ?
+        return this._useDataChannel ?
             this._isConnectedDataChannel && this._isConnectedPeer :
             this._isConnectedPeer;
     }
@@ -51,7 +117,6 @@ class Peer {
     getSenders() {
         return this._rtcPeer.getSenders();
     }
-
 
     async createOfferSdp(options) {
         this.localSdp = await this._rtcPeer.createOffer(options);
@@ -65,9 +130,11 @@ class Peer {
         return this.localSdp;
     }
 
-    createDataChannel(channelName) {
+    createDataChannel(channelName, dataChannelDict) {
+        if (!this._useDataChannel) return;
         if (!this._rtcPeer.createDataChannel) return;
-        this._setDataChannel(this._rtcPeer.createDataChannel(channelName));
+
+        this._setDataChannel(this._rtcPeer.createDataChannel(channelName, dataChannelDict));
     }
 
     setRemoteDescription(sdp) {
@@ -80,7 +147,7 @@ class Peer {
     }
 
     send(data) {
-        if (!this._option.dataChannel || !this._dataChannel) return;
+        if (!this._useDataChannel || !this._dataChannel) return;
         this._dataChannel.send(data);
     }
 
@@ -149,7 +216,7 @@ class Peer {
                 this._emitter.emit('close', state);
             }
 
-            this._emitter.emit('updateIceState', state);
+            this._emitter.emit('changeIceState', state);
         };
     }
 
@@ -164,87 +231,9 @@ class Peer {
     }
 }
 
-const DEFAULT_CONFIG = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-};
-
-const DEFAULT_OPTION = {
-    dataChannel: true,
-};
-
-class PeerConnector {
-    /**
-     * @param {object} props
-     * @param {MediaStream} [props.stream]
-     * @param {RTCConfiguration} [props.config]
-     * @param {DEFAULT_OPTION} [props.option]
-     */
-    constructor({ stream, config = DEFAULT_CONFIG, option = DEFAULT_OPTION }) {
-        if (!getBrowserRTC()) {
-            throw new Error('Not support getUserMedia API');
-        }
-
-        this.stream = stream;
-        this.peers = new Map();
-
-        this._config = config;
-        this._option = option;
-        this._emitter = new Emitter();
-    }
-
-    on(eventName, listener) {
-        this._emitter.on(eventName, listener);
-    }
-
-    once(eventName, listener) {
-        this._emitter.once(eventName, listener);
-    }
-
-    off(eventName, listener) {
-        this._emitter.off(eventName, listener);
-    }
-
-    createPeer(id) {
-        const peer = new Peer({ id, stream: this.stream, config: this._config, option: this._option });
-
-        peer.once('connect', () => this._emitter.emit('connect', peer));
-        this.setPeer(peer);
-
-        return peer;
-    }
-
-    hasPeer(id) {
-        return this.peers.has(id);
-    }
-
-    getPeer(id) {
-        return this.peers.get(id);
-    }
-
-    setPeer(peer) {
-        this.peers.set(peer.id, peer);
-    }
-
-    removePeer(id) {
-        return this.peers.delete(id);
-    }
-
-    close() {
-        if (this.stream) {
-            this.stream.getTracks().forEach((track) => track.stop());
-        }
-
-        this.destroy();
-    }
-
-    destroy() {
-        allOff(this._emitter);
-    }
-}
-
 const SIGNAL_EVENT = {
     JOIN: 'join',
-    REQUEST_CONNECT: 'request-connect',
+    REQUEST_CONNECT: 'requestConnect',
     SDP: 'sdp',
     CANDIDATE: 'candidate',
 };
@@ -284,6 +273,7 @@ class Signal {
         }));
     }
 
+    /** @param {import('./PeerConnector').default} peerConnector */
     autoSignal(peerConnector) {
         this.send(SIGNAL_EVENT.JOIN);
 
@@ -292,9 +282,11 @@ class Signal {
         });
 
         this._emitter.on(SIGNAL_EVENT.REQUEST_CONNECT, async ({ sender }) => {
-            const peer = peerConnector.createPeer(sender);
+            const { stream, config, channel, channelName, channelConfig } = peerConnector;
+            const peer = new Peer({ id: sender, stream, config, channel });
+            peerConnector.addPeer(peer);
 
-            peer.createDataChannel(this.id);
+            peer.createDataChannel(channelName, channelConfig);
 
             peer.on('iceCandidate', (candidate) => {
                 this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
@@ -308,7 +300,9 @@ class Signal {
                 const peer = peerConnector.getPeer(sender);
                 await peer.setRemoteDescription(sdp);
             } else {
-                const peer = peerConnector.createPeer(sender);
+                const { stream, config, channel } = peerConnector;
+                const peer = new Peer({ id: sender, stream, config, channel });
+                peerConnector.addPeer(peer);
 
                 peer.on('iceCandidate', (candidate) => {
                     this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
@@ -429,4 +423,4 @@ function connectWebsocket(url, protocols) {
 }
 
 export default PeerConnector;
-export { Peer, Signal, SIGNAL_EVENT, getMediaStream, connectWebsocket };
+export { PeerConnector, Peer, Signal, SIGNAL_EVENT, getMediaStream, connectWebsocket };

@@ -7,7 +7,6 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 var Emitter = _interopDefault(require('event-emitter'));
 var allOff = _interopDefault(require('event-emitter/all-off'));
 var nanoid = _interopDefault(require('nanoid'));
-var getBrowserRTC = _interopDefault(require('get-browser-rtc'));
 var detectBrowser = require('detect-browser');
 
 function _classCallCheck(instance, Constructor) {
@@ -74,22 +73,130 @@ function _nonIterableRest() {
   throw new TypeError("Invalid attempt to destructure non-iterable instance");
 }
 
+var PeerConnector =
+/*#__PURE__*/
+function () {
+  /**
+   * @param {object} [props]
+   * @param {MediaStream} [props.stream]
+   * @param {RTCConfiguration} [props.config]
+   * @param {boolean} [props.channel]
+   * @param {string} [props.channelName]
+   * @param {RTCDataChannelInit} [props.channelConfig]
+   */
+  function PeerConnector() {
+    var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+        _ref$stream = _ref.stream,
+        stream = _ref$stream === void 0 ? false : _ref$stream,
+        config = _ref.config,
+        _ref$channel = _ref.channel,
+        channel = _ref$channel === void 0 ? true : _ref$channel,
+        _ref$channelName = _ref.channelName,
+        channelName = _ref$channelName === void 0 ? nanoid(20) : _ref$channelName,
+        _ref$channelConfig = _ref.channelConfig,
+        channelConfig = _ref$channelConfig === void 0 ? {} : _ref$channelConfig;
+
+    _classCallCheck(this, PeerConnector);
+
+    this.stream = stream;
+    this.peers = new Map();
+    this.config = config;
+    this.channel = channel;
+    this.channelName = channelName;
+    this.channelConfig = channelConfig;
+    this._emitter = new Emitter();
+  }
+
+  _createClass(PeerConnector, [{
+    key: "on",
+    value: function on(eventName, listener) {
+      this._emitter.on(eventName, listener);
+    }
+  }, {
+    key: "once",
+    value: function once(eventName, listener) {
+      this._emitter.once(eventName, listener);
+    }
+  }, {
+    key: "off",
+    value: function off(eventName, listener) {
+      this._emitter.off(eventName, listener);
+    }
+  }, {
+    key: "addPeer",
+    value: function addPeer(peer) {
+      var _this = this;
+
+      peer.once('connect', function () {
+        return _this._emitter.emit('connect', peer);
+      });
+      this.peers.set(peer.id, peer);
+      return peer;
+    }
+  }, {
+    key: "removePeer",
+    value: function removePeer(id) {
+      return this.peers.delete(id);
+    }
+  }, {
+    key: "hasPeer",
+    value: function hasPeer(id) {
+      return this.peers.has(id);
+    }
+  }, {
+    key: "getPeer",
+    value: function getPeer(id) {
+      return this.peers.get(id);
+    }
+  }, {
+    key: "close",
+    value: function close() {
+      var stream = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.stream;
+
+      if (stream) {
+        stream.getTracks().forEach(function (track) {
+          return track.stop();
+        });
+      }
+
+      this.destroy();
+    }
+  }, {
+    key: "destroy",
+    value: function destroy() {
+      allOff(this._emitter);
+    }
+  }]);
+
+  return PeerConnector;
+}();
+
+var DEFAULT_CONFIG = {
+  iceServers: [{
+    urls: 'stun:stun.l.google.com:19302'
+  }]
+};
+
 var Peer =
 /*#__PURE__*/
 function () {
   /**
    * @param {object} props
+   * @param {string} [props.id]
    * @param {MediaStream} [props.stream]
    * @param {RTCConfiguration} [props.config]
-   * @param {typeof import('./PeerConnector').DEFAULT_OPTION} [props.option]
-   * @param {string} [props.id]
+   * @param {boolean} [props.channel]
    */
-  function Peer(_ref) {
-    var stream = _ref.stream,
-        config = _ref.config,
-        option = _ref.option,
+  function Peer() {
+    var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+        _ref$stream = _ref.stream,
+        stream = _ref$stream === void 0 ? false : _ref$stream,
         _ref$id = _ref.id,
-        id = _ref$id === void 0 ? nanoid(20) : _ref$id;
+        id = _ref$id === void 0 ? nanoid(20) : _ref$id,
+        _ref$channel = _ref.channel,
+        channel = _ref$channel === void 0 ? true : _ref$channel,
+        _ref$config = _ref.config,
+        config = _ref$config === void 0 ? DEFAULT_CONFIG : _ref$config;
 
     _classCallCheck(this, Peer);
 
@@ -99,8 +206,8 @@ function () {
     this.localSdp = null;
     this.remoteSdp = null;
     this._rtcPeer = new RTCPeerConnection(config);
+    this._useDataChannel = channel;
     this._dataChannel = null;
-    this._option = option;
     this._emitter = new Emitter();
     this._isConnectedPeer = false;
     this._isConnectedDataChannel = false;
@@ -127,7 +234,7 @@ function () {
   }, {
     key: "isConnected",
     value: function isConnected() {
-      return this._option.dataChannel ? this._isConnectedDataChannel && this._isConnectedPeer : this._isConnectedPeer;
+      return this._useDataChannel ? this._isConnectedDataChannel && this._isConnectedPeer : this._isConnectedPeer;
     }
   }, {
     key: "getSenders",
@@ -170,10 +277,11 @@ function () {
     }
   }, {
     key: "createDataChannel",
-    value: function createDataChannel(channelName) {
+    value: function createDataChannel(channelName, dataChannelDict) {
+      if (!this._useDataChannel) return;
       if (!this._rtcPeer.createDataChannel) return;
 
-      this._setDataChannel(this._rtcPeer.createDataChannel(channelName));
+      this._setDataChannel(this._rtcPeer.createDataChannel(channelName, dataChannelDict));
     }
   }, {
     key: "setRemoteDescription",
@@ -189,7 +297,7 @@ function () {
   }, {
     key: "send",
     value: function send(data) {
-      if (!this._option.dataChannel || !this._dataChannel) return;
+      if (!this._useDataChannel || !this._dataChannel) return;
 
       this._dataChannel.send(data);
     }
@@ -284,7 +392,7 @@ function () {
           _this2._emitter.emit('close', state);
         }
 
-        _this2._emitter.emit('updateIceState', state);
+        _this2._emitter.emit('changeIceState', state);
       };
     }
   }, {
@@ -326,120 +434,9 @@ function () {
   return Peer;
 }();
 
-var DEFAULT_CONFIG = {
-  iceServers: [{
-    urls: 'stun:stun.l.google.com:19302'
-  }]
-};
-var DEFAULT_OPTION = {
-  dataChannel: true
-};
-
-var PeerConnector =
-/*#__PURE__*/
-function () {
-  /**
-   * @param {object} props
-   * @param {MediaStream} [props.stream]
-   * @param {RTCConfiguration} [props.config]
-   * @param {DEFAULT_OPTION} [props.option]
-   */
-  function PeerConnector(_ref) {
-    var stream = _ref.stream,
-        _ref$config = _ref.config,
-        config = _ref$config === void 0 ? DEFAULT_CONFIG : _ref$config,
-        _ref$option = _ref.option,
-        option = _ref$option === void 0 ? DEFAULT_OPTION : _ref$option;
-
-    _classCallCheck(this, PeerConnector);
-
-    if (!getBrowserRTC()) {
-      throw new Error('Not support getUserMedia API');
-    }
-
-    this.stream = stream;
-    this.peers = new Map();
-    this._config = config;
-    this._option = option;
-    this._emitter = new Emitter();
-  }
-
-  _createClass(PeerConnector, [{
-    key: "on",
-    value: function on(eventName, listener) {
-      this._emitter.on(eventName, listener);
-    }
-  }, {
-    key: "once",
-    value: function once(eventName, listener) {
-      this._emitter.once(eventName, listener);
-    }
-  }, {
-    key: "off",
-    value: function off(eventName, listener) {
-      this._emitter.off(eventName, listener);
-    }
-  }, {
-    key: "createPeer",
-    value: function createPeer(id) {
-      var _this = this;
-
-      var peer = new Peer({
-        id: id,
-        stream: this.stream,
-        config: this._config,
-        option: this._option
-      });
-      peer.once('connect', function () {
-        return _this._emitter.emit('connect', peer);
-      });
-      this.setPeer(peer);
-      return peer;
-    }
-  }, {
-    key: "hasPeer",
-    value: function hasPeer(id) {
-      return this.peers.has(id);
-    }
-  }, {
-    key: "getPeer",
-    value: function getPeer(id) {
-      return this.peers.get(id);
-    }
-  }, {
-    key: "setPeer",
-    value: function setPeer(peer) {
-      this.peers.set(peer.id, peer);
-    }
-  }, {
-    key: "removePeer",
-    value: function removePeer(id) {
-      return this.peers.delete(id);
-    }
-  }, {
-    key: "close",
-    value: function close() {
-      if (this.stream) {
-        this.stream.getTracks().forEach(function (track) {
-          return track.stop();
-        });
-      }
-
-      this.destroy();
-    }
-  }, {
-    key: "destroy",
-    value: function destroy() {
-      allOff(this._emitter);
-    }
-  }]);
-
-  return PeerConnector;
-}();
-
 var SIGNAL_EVENT = {
   JOIN: 'join',
-  REQUEST_CONNECT: 'request-connect',
+  REQUEST_CONNECT: 'requestConnect',
   SDP: 'sdp',
   CANDIDATE: 'candidate'
 };
@@ -492,6 +489,8 @@ function () {
         }, data)
       }));
     }
+    /** @param {import('./PeerConnector').default} peerConnector */
+
   }, {
     key: "autoSignal",
     value: function autoSignal(peerConnector) {
@@ -509,10 +508,17 @@ function () {
 
       this._emitter.on(SIGNAL_EVENT.REQUEST_CONNECT, function (_ref3) {
         return new Promise(function ($return, $error) {
-          var sender, peer;
+          var sender, stream, config, channel, channelName, channelConfig, peer;
           sender = _ref3.sender;
-          peer = peerConnector.createPeer(sender);
-          peer.createDataChannel(_this.id);
+          stream = peerConnector.stream, config = peerConnector.config, channel = peerConnector.channel, channelName = peerConnector.channelName, channelConfig = peerConnector.channelConfig;
+          peer = new Peer({
+            id: sender,
+            stream: stream,
+            config: config,
+            channel: channel
+          });
+          peerConnector.addPeer(peer);
+          peer.createDataChannel(channelName, channelConfig);
           peer.on('iceCandidate', function (candidate) {
             _this.send(SIGNAL_EVENT.CANDIDATE, {
               receiver: peer.id,
@@ -536,7 +542,7 @@ function () {
 
       this._emitter.on(SIGNAL_EVENT.SDP, function (_ref4) {
         return new Promise(function ($return, $error) {
-          var sender, sdp, peer, _peer;
+          var sender, sdp, peer, stream, config, channel, _peer;
 
           sender = _ref4.sender, sdp = _ref4.sdp;
 
@@ -550,7 +556,14 @@ function () {
               }
             }.bind(this), $error);
           } else {
-            _peer = peerConnector.createPeer(sender);
+            stream = peerConnector.stream, config = peerConnector.config, channel = peerConnector.channel;
+            _peer = new Peer({
+              id: sender,
+              stream: stream,
+              config: config,
+              channel: channel
+            });
+            peerConnector.addPeer(_peer);
 
             _peer.on('iceCandidate', function (candidate) {
               _this.send(SIGNAL_EVENT.CANDIDATE, {
@@ -763,6 +776,7 @@ function connectWebsocket(url, protocols) {
 }
 
 exports.default = PeerConnector;
+exports.PeerConnector = PeerConnector;
 exports.Peer = Peer;
 exports.Signal = Signal;
 exports.SIGNAL_EVENT = SIGNAL_EVENT;

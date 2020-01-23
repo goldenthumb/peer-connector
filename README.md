@@ -29,29 +29,13 @@ Now open this URL in your browser: http://localhost:3000/
 Please refer to the file. (example/src/index.js)
 
 ```js
-import PeerConnector, { getMediaStream, connectWebsocket, Signal } from 'peer-connector';
+import { PeerConnector, getMediaStream, connectWebsocket, Signal } from 'peer-connector';
 
 (async () => {
-    /**
-     * @param {{ screen: boolean, video: boolean, audio: boolean }} args
-     * @param {ReturnType<MediaStream>}
-    */
     const stream = await getMediaStream({ video: true, audio: true });
-
-    /**
-     * @param {object} props
-     * @param {MediaStream} [props.stream]
-     * @param {RTCConfiguration} [props.config]     // default { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
-     * @param {{ dataChannel: boolean }} [props.option]     // default  { dataChannel: true }
-     */
     const peerConnector = new PeerConnector({ stream });
-
-    /**
-     * @param {object} props
-     * @param {WebSocket} props.websocket
-     * @param {string} [props.id]
-     */
-    const signal = new Signal({ websocket: await connectWebsocket('ws://localhost:1234') });
+    const websocket = await connectWebsocket('ws://localhost:1234');
+    const signal = new Signal({ websocket });
 
     signal.autoSignal(peerConnector);
 
@@ -78,12 +62,13 @@ import PeerConnector, { getMediaStream, connectWebsocket, Signal } from 'peer-co
 You can implement the signaling logic as you wish. (Using websocket and MQTT or other) <br>
 
 ```js
-import PeerConnector, { getMediaStream, connectWebsocket, Signal, SIGNAL_EVENT } from 'peer-connector';
+import { PeerConnector, Peer, getMediaStream, connectWebsocket, Signal, SIGNAL_EVENT } from 'peer-connector';
 
 (async () => {
     const stream = await getMediaStream(mediaType);
-    const peerConnector = new PeerConnector({ stream });
-    const signal = new Signal({ websocket: await connectWebsocket('ws://localhost:1234') });
+    const peerConnector = new PeerConnector();
+    const websocket = await connectWebsocket('ws://localhost:1234');
+    const signal = new Signal({ websocket });
 
     signal.send(SIGNAL_EVENT.JOIN);
 
@@ -92,13 +77,15 @@ import PeerConnector, { getMediaStream, connectWebsocket, Signal, SIGNAL_EVENT }
     });
 
     signal.on(SIGNAL_EVENT.REQUEST_CONNECT, async ({ sender }) => {
-        const peer = peerConnector.createPeer(sender);
+        const peer = new Peer({ id: sender, stream });
+        peerConnector.addPeer(peer);
+
+        peer.createDataChannel(peerConnector.channelName);
 
         peer.on('iceCandidate', (candidate) => {
             signal.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
         });
 
-        peer.createDataChannel(signal.id);
         signal.send(SIGNAL_EVENT.SDP, { receiver: peer.id, sdp: await peer.createOfferSdp() });
     });
 
@@ -107,7 +94,8 @@ import PeerConnector, { getMediaStream, connectWebsocket, Signal, SIGNAL_EVENT }
             const peer = peerConnector.getPeer(sender);
             await peer.setRemoteDescription(sdp);
         } else {
-            const peer = peerConnector.createPeer(sender);
+            const peer = new Peer({ id: sender, stream });
+            peerConnector.addPeer(peer);
 
             peer.on('iceCandidate', (candidate) => {
                 signal.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });
@@ -124,8 +112,6 @@ import PeerConnector, { getMediaStream, connectWebsocket, Signal, SIGNAL_EVENT }
     });
 
     peerConnector.on('connect', (peer) => {
-        // peer is generated each time WebRTC is connected.
-        console.log('stream', peer.remoteStream);
         peer.send('data channel connected');
       
         peer.on('data', (data) => {
@@ -142,26 +128,77 @@ import PeerConnector, { getMediaStream, connectWebsocket, Signal, SIGNAL_EVENT }
 <br />
 <br />
 
-### peerConnector
+## API
+### PeerConnector
+```js
+/**
+ * @param {object} [options]
+ * @param {MediaStream} [options.stream]
+ * @param {RTCConfiguration} [options.config]
+ * @param {boolean} [options.channel]
+ * @param {string} [options.channelName]
+ * @param {RTCDataChannelInit} [options.channelConfig]
+ */
+const peerConnector = new PeerConnector();
+```
+<br />
+<br />
+If opts is specified, then the default options (shown below) will be overridden.
+
+```
+{   
+    stream: false,
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] },
+    channel: true,
+    channelName: '<random string>',
+    channelConfig: {},
+}
+```
+<br />
+<br />
+
 | Name       | type   | Description                  |
 |------------|--------|------------------------------|
 | stream     | prop   | media local stream           |
 | peers      | prop   | connected peers              |
-| createPeer | method | add peer                     |
+| addPeer    | method | add peer                     |
+| removePeer | method | remove peer                  |
 | hasPeer    | method | has peer                     |
 | getPeer    | method | get peer                     |
-| setPeer    | method | set peer                     |
-| removePeer | method | remove peer                  |
 | close      | method | close media local stream     |
 | destroy    | method | removes all listeners        |
 | connect    | event  | triggers when connect WebRTC |
-| close      | event  | triggers when connect WebRTC |
 
 <br />
 <br />
 <br />
 
-### peer
+### Peer
+```js
+/**
+ * @param {object} props
+ * @param {string} [props.id]
+ * @param {MediaStream} [props.stream]
+ * @param {RTCConfiguration} [props.config]
+ * @param {boolean} [props.channel]
+ */
+const peer = new Peer();
+```
+<br />
+<br />
+If opts is specified, then the default options (shown below) will be overridden.
+
+```
+{   
+    id: '<random string>',
+    stream: false,
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] },
+    channel: true,
+}
+```
+<br />
+<br />
+
 |  Name                | type   | Description                                        |
 |----------------------|--------|----------------------------------------------------|
 | id                   | prop   | peer id                                            |
@@ -178,7 +215,7 @@ import PeerConnector, { getMediaStream, connectWebsocket, Signal, SIGNAL_EVENT }
 | close                | method | peer close                                         |
 | destroy              | method | removes all listeners                              |
 | iceCandidate         | event  | triggers when candidates occur                     |
-| updateIceState       | event  | triggers when oniceconnectionstatechange occur     |
+| changeIceState       | event  | triggers when oniceconnectionstatechange occur     |
 | message              | event  | data received by data channel                      |
 | close                | event  | triggers when ICE connection or data channel close |
 | error                | event  | triggers when data channel error                   |
@@ -187,7 +224,43 @@ import PeerConnector, { getMediaStream, connectWebsocket, Signal, SIGNAL_EVENT }
 <br />
 <br />
 
-### License
+### Signal
+```js
+/**
+ * @param {object} props
+ * @param {WebSocket} props.websocket
+ * @param {string} [props.id]
+ */
+const signal = new Signal();
+```
+<br />
+<br />
+If opts is specified, then the default options (shown below) will be overridden.
+
+```
+{   
+    id: '<random string>',
+}
+```
+<br />
+<br />
+
+| Name           | type   | Description                   |
+|----------------|--------|-------------------------------|
+| id             | prop   | signal id                     |
+| send           | method | send message                  |
+| autoSignal     | method | auto signaling                |
+| destroy        | method | removes all listeners         |
+| join           | event  | triggers When user join       |
+| requestConnect | event  | triggers when connect request |
+| sdp            | event  | triggers when user sdp        |
+| candidate      | event  | triggers when user candidate  |
+
+<br />
+<br />
+<br />
+
+## License
 MIT
 
 <br />
