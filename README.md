@@ -153,6 +153,23 @@ import {
 <br />
 
 ## API
+### getMediaStream
+```js
+/**
+ * @param {{ screen?: boolean, video?: boolean, audio?: boolean  }} options
+ * @return {Promise<MediaStream>}
+*/
+const stream = new getMediaStream(options);
+
+// Desktop screen sharing. 
+// const stream = new getMediaStream({ screen: true });
+
+// Video and audio sharing.
+// const stream = new getMediaStream({ video: true, audio: true });
+```
+<br />
+<br />
+
 ### PeerConnector
 ```js
 /**

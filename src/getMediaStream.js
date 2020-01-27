@@ -2,7 +2,7 @@ import requestScreen from './requestScreen';
 
 /**
  * @param {{ screen: boolean } & MediaStreamConstraints} args
- * @param {ReturnType<MediaStream>}
+ * @return {Promise<MediaStream>}
 */
 export default function getMediaStream({ screen, video, audio } = {}) {
     return screen ?

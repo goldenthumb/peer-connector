@@ -10,7 +10,7 @@ interface PeerConnectorProps {
     config?: RTCConfiguration;
     channel?: boolean;
     channelName?: string;
-    channelConfig: RTCDataChannelInit;
+    channelConfig?: RTCDataChannelInit;
 }
 
 interface SignalProps {
@@ -45,7 +45,7 @@ declare class Peer {
     getSenders(): RTCRtpSender[];
     createOfferSdp(options?: RTCOfferOptions): Promise<RTCSessionDescriptionInit>;
     createAnswerSdp(options?: RTCOfferOptions): Promise<RTCSessionDescriptionInit>;
-    createDataChannel(channelName: string): void;
+    createDataChannel(channelName: string, dataChannelDict?: RTCDataChannelInit): void;
     setRemoteDescription(sdp: RTCSessionDescriptionInit): Promise<void>;
     addIceCandidate(candidate: RTCIceCandidateInit | RTCIceCandidate): Promise<void>;
     send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void;
@@ -82,7 +82,7 @@ declare const peerConnector: {
     Peer: { new (props: PeerProps): Peer };
     Signal: { new (props: SignalProps): Signal };
     SIGNAL_EVENT: SignalEvent;
-    getMediaStream({ screen, video, audio }: StreamConstraints): Promise<MediaStream>
+    getMediaStream(props: StreamConstraints): Promise<MediaStream>
     connectWebsocket(url: string, protocols: string | string[]): Promise<WebSocket>;
 }
 
