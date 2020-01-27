@@ -298,15 +298,31 @@ function () {
     key: "send",
     value: function send(data) {
       if (!this._useDataChannel || !this._dataChannel) return;
+      if (!this._rtcPeer.iceConnectionState === 'disconnected') return;
 
       this._dataChannel.send(data);
     }
   }, {
     key: "close",
     value: function close() {
-      this._rtcPeer.close();
-
+      this.closePeer();
+      this.closeChannel();
       this.destroy();
+    }
+  }, {
+    key: "closePeer",
+    value: function closePeer() {
+      if (!this._rtcPeer.iceConnectionState === 'disconnected') return;
+
+      this._rtcPeer.close();
+    }
+  }, {
+    key: "closeChannel",
+    value: function closeChannel() {
+      if (!this._dataChannel) return;
+      if (this._dataChannel.readyState === 'closed') return;
+
+      this._dataChannel.close();
     }
   }, {
     key: "destroy",
@@ -389,7 +405,7 @@ function () {
         }
 
         if (state === 'disconnected') {
-          _this2._emitter.emit('close', state);
+          _this2._emitter.emit('close', 'ICE Connection');
         }
 
         _this2._emitter.emit('changeIceState', state);
@@ -724,7 +740,7 @@ function isInstalledExtension() {
 
 /**
  * @param {{ screen: boolean } & MediaStreamConstraints} args
- * @param {ReturnType<MediaStream>}
+ * @return {Promise<MediaStream>}
 */
 
 function getMediaStream() {

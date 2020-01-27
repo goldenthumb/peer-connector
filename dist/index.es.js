@@ -148,12 +148,25 @@ class Peer {
 
     send(data) {
         if (!this._useDataChannel || !this._dataChannel) return;
+        if (!this._rtcPeer.iceConnectionState === 'disconnected') return;
         this._dataChannel.send(data);
     }
 
     close() {
-        this._rtcPeer.close();
+        this.closePeer();
+        this.closeChannel();
         this.destroy();
+    }
+
+    closePeer() {
+        if (!this._rtcPeer.iceConnectionState === 'disconnected') return;
+        this._rtcPeer.close();
+    }
+
+    closeChannel() {
+        if (!this._dataChannel) return;
+        if (this._dataChannel.readyState === 'closed') return;
+        this._dataChannel.close();
     }
 
     destroy() {
@@ -213,7 +226,7 @@ class Peer {
             }
 
             if (state === 'disconnected') {
-                this._emitter.emit('close', state);
+                this._emitter.emit('close', 'ICE Connection');
             }
 
             this._emitter.emit('changeIceState', state);
@@ -389,7 +402,7 @@ function isInstalledExtension() {
 
 /**
  * @param {{ screen: boolean } & MediaStreamConstraints} args
- * @param {ReturnType<MediaStream>}
+ * @return {Promise<MediaStream>}
 */
 function getMediaStream({ screen, video, audio } = {}) {
     return screen ?
