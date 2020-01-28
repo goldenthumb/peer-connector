@@ -53,9 +53,9 @@ class PeerConnector {
         return this.peers.get(id);
     }
 
-    close(stream = this.stream) {
-        if (stream) {
-            stream.getTracks().forEach((track) => track.stop());
+    close() {
+        for (const peer of this.peers.values()) {
+            peer.close();
         }
 
         this.destroy();
