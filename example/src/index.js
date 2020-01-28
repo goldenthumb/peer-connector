@@ -25,7 +25,7 @@ $connect.addEventListener('click', async () => {
         $local.srcObject = stream;
 
         const peerConnector = new PeerConnector({ stream });
-        const signal = new Signal({ websocket: await connectWebsocket('wss://localhost:1234') });
+        const signal = new Signal({ websocket: await connectWebsocket('ws://localhost:1234') });
 
         signal.autoSignal(peerConnector);
 
