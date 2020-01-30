@@ -314,7 +314,8 @@ function () {
     key: "send",
     value: function send(data) {
       if (!this._useDataChannel || !this._dataChannel) return;
-      if (!this._rtcPeer.iceConnectionState === 'disconnected') return;
+      if (this._dataChannel.readyState !== 'open') return;
+      if (!this._rtcPeer.iceConnectionState !== 'connected') return;
 
       this._dataChannel.send(data);
     }
