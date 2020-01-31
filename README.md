@@ -47,7 +47,10 @@ import {
     peerConnector.on('connect', (peer) => {
         // peer is generated each time WebRTC is connected.
         console.log('stream', peer.remoteStream);
-        peer.send('data channel connected');
+
+        peer.on('open', (data) => {
+            peer.send('open data channel');
+        });
       
         peer.on('data', (data) => {
             console.log('data channel message', data);
@@ -136,7 +139,9 @@ import {
     });
 
     peerConnector.on('connect', (peer) => {
-        peer.send('data channel connected');
+        peer.on('open', (data) => {
+            peer.send('open data channel');
+        });
       
         peer.on('data', (data) => {
             console.log('data channel message', data);
@@ -162,10 +167,10 @@ import {
 const stream = await getMediaStream(options);
 
 // Desktop screen sharing. 
-// const stream = await getMediaStream({ screen: true });
+const stream = await getMediaStream({ screen: true });
 
 // Video and audio sharing.
-// const stream = await getMediaStream({ video: true, audio: true });
+const stream = await getMediaStream({ video: true, audio: true });
 ```
 <br />
 <br />
@@ -257,7 +262,8 @@ If opts is specified, then the default options (shown below) will be overridden.
 | destroy              | method | removes all listeners                              |
 | iceCandidate         | event  | triggers when candidates occur                     |
 | changeIceState       | event  | triggers when oniceconnectionstatechange occur     |
-| message              | event  | data received by data channel                      |
+| open                 | event  | triggers when data channel open                    |
+| data                 | event  | data received by data channel                      |
 | close                | event  | triggers when ICE connection or data channel close |
 | error                | event  | triggers when data channel error                   |
 

@@ -2,7 +2,6 @@ interface PeerProps {
     id?: string;
     stream?: MediaStream;
     config?: RTCConfiguration;
-    channel?: boolean;
 }
 
 interface PeerConnectorProps {

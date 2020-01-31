@@ -58,7 +58,9 @@ export default class Signal {
             const peer = new Peer({ id: sender, stream, config, channel });
             peerConnector.addPeer(peer);
 
-            peer.createDataChannel(channelName, channelConfig);
+            if (channel) {
+                peer.createDataChannel(channelName, channelConfig);
+            }
 
             peer.on('iceCandidate', (candidate) => {
                 this.send(SIGNAL_EVENT.CANDIDATE, { receiver: peer.id, candidate });

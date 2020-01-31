@@ -12,9 +12,8 @@ export default class Peer {
      * @param {string} [props.id]
      * @param {MediaStream} [props.stream]
      * @param {RTCConfiguration} [props.config]
-     * @param {boolean} [props.channel]
      */
-    constructor({ stream = false, id = nanoid(20), channel = true, config = DEFAULT_CONFIG } = {}) {
+    constructor({ stream = false, id = nanoid(20), config = DEFAULT_CONFIG } = {}) {
         this.id = id;
         this.localStream = stream;
         this.remoteStream = null;
@@ -22,12 +21,8 @@ export default class Peer {
         this.remoteSdp = null;
 
         this._rtcPeer = new RTCPeerConnection(config);
-        this._useDataChannel = channel;
         this._dataChannel = null;
         this._emitter = new Emitter();
-        this._isConnectedPeer = false;
-        this._isConnectedDataChannel = false;
-        this._dataQueue = [];
 
         this._attachEvents();
     }
@@ -42,12 +37,6 @@ export default class Peer {
 
     off(eventName, listener) {
         this._emitter.off(eventName, listener);
-    }
-
-    isConnected() {
-        return this._useDataChannel ?
-            this._isConnectedDataChannel && this._isConnectedPeer :
-            this._isConnectedPeer;
     }
 
     getSenders() {
@@ -67,9 +56,7 @@ export default class Peer {
     }
 
     createDataChannel(channelName, dataChannelDict) {
-        if (!this._useDataChannel) return;
         if (!this._rtcPeer.createDataChannel) return;
-
         this._setDataChannel(this._rtcPeer.createDataChannel(channelName, dataChannelDict));
     }
 
@@ -83,9 +70,9 @@ export default class Peer {
     }
 
     send(data) {
-        if (!this._useDataChannel || !this._dataChannel) return;
+        if (!this._dataChannel) return;
         if (this._dataChannel.readyState !== 'open') return;
-        if (!this._rtcPeer.iceConnectionState !== 'connected') return;
+        if (this._rtcPeer.iceConnectionState !== 'connected') return;
         this._dataChannel.send(data);
     }
 
@@ -114,16 +101,10 @@ export default class Peer {
         this._dataChannel = dataChannel;
 
         this._dataChannel.onopen = () => {
-            this._isConnectedDataChannel = true;
-            this._emitConnect();
+            this._emitter.emit('open');
         };
 
         this._dataChannel.onmessage = ({ data }) => {
-            if (!this.isConnected()) {
-                this._dataQueue.push(data);
-                return;
-            }
-
             this._emitter.emit('data', data);
         };
 
@@ -158,8 +139,7 @@ export default class Peer {
             const state = this._rtcPeer.iceConnectionState;
 
             if (state === 'connected') {
-                this._isConnectedPeer = true;
-                this._emitConnect();
+                this._emitter.emit('connect');
             }
 
             if (state === 'disconnected') {
@@ -168,15 +148,5 @@ export default class Peer {
 
             this._emitter.emit('changeIceState', state);
         };
-    }
-
-    _emitConnect() {
-        if (!this.isConnected()) return;
-        this._emitter.emit('connect');
-
-        for (const data of this._dataQueue) {
-            this._emitter.emit('data', data);
-        }
-        this._dataQueue = [];
     }
 }

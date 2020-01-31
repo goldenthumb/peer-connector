@@ -31,16 +31,31 @@ $connect.addEventListener('click', async () => {
 
         peerConnector.on('connect', (peer) => {
             console.log('peer connected', peer);
-            peer.send('data channel connected');
 
             const $remoteVideo = document.createElement('video');
             $remoteVideo.style.width = '33%';
             $remoteVideo.autoplay = true;
             $remoteVideo.srcObject = peer.remoteStream;
             $videoGroup.appendChild($remoteVideo);
-            $messageInput.style.display = 'inline-block';
-            $send.style.display = 'inline-block';
-            $send.addEventListener('click', () => peer.send($messageInput.value));
+
+            peer.on('open', () => {
+                $messageInput.style.display = 'inline-block';
+                $messageInput.focus();
+                $messageInput.addEventListener('keypress', ({ code }) => {
+                    if (code !== 'Enter') return;
+                    if (!$messageInput.value) return;
+                    peer.send($messageInput.value);
+                    $messageInput.value = '';
+                });
+
+                $send.style.display = 'inline-block';
+                $send.addEventListener('click', () => {
+                    peer.send($messageInput.value);
+                    $messageInput.value = '';
+                });
+
+                peer.send('open data channel');
+            });
 
             peer.on('data', (data) => {
                 console.log('data (data channel) : ', data);

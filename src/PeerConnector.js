@@ -36,6 +36,7 @@ export default class PeerConnector {
 
     addPeer(peer) {
         peer.once('connect', () => this._emitter.emit('connect', peer));
+
         this.peers.set(peer.id, peer);
         return peer;
     }
