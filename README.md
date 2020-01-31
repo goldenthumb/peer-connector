@@ -159,13 +159,13 @@ import {
  * @param {{ screen?: boolean, video?: boolean, audio?: boolean  }} options
  * @return {Promise<MediaStream>}
 */
-const stream = new getMediaStream(options);
+const stream = await getMediaStream(options);
 
 // Desktop screen sharing. 
-// const stream = new getMediaStream({ screen: true });
+// const stream = await getMediaStream({ screen: true });
 
 // Video and audio sharing.
-// const stream = new getMediaStream({ video: true, audio: true });
+// const stream = await getMediaStream({ video: true, audio: true });
 ```
 <br />
 <br />
