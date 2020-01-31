@@ -201,7 +201,6 @@ function () {
    * @param {string} [props.id]
    * @param {MediaStream} [props.stream]
    * @param {RTCConfiguration} [props.config]
-   * @param {boolean} [props.channel]
    */
   function Peer() {
     var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
@@ -209,8 +208,6 @@ function () {
         stream = _ref$stream === void 0 ? false : _ref$stream,
         _ref$id = _ref.id,
         id = _ref$id === void 0 ? nanoid(20) : _ref$id,
-        _ref$channel = _ref.channel,
-        channel = _ref$channel === void 0 ? true : _ref$channel,
         _ref$config = _ref.config,
         config = _ref$config === void 0 ? DEFAULT_CONFIG : _ref$config;
 
@@ -222,12 +219,8 @@ function () {
     this.localSdp = null;
     this.remoteSdp = null;
     this._rtcPeer = new RTCPeerConnection(config);
-    this._useDataChannel = channel;
     this._dataChannel = null;
     this._emitter = new Emitter();
-    this._isConnectedPeer = false;
-    this._isConnectedDataChannel = false;
-    this._dataQueue = [];
 
     this._attachEvents();
   }
@@ -248,11 +241,6 @@ function () {
       this._emitter.off(eventName, listener);
     }
   }, {
-    key: "isConnected",
-    value: function isConnected() {
-      return this._useDataChannel ? this._isConnectedDataChannel && this._isConnectedPeer : this._isConnectedPeer;
-    }
-  }, {
     key: "getSenders",
     value: function getSenders() {
       return this._rtcPeer.getSenders();
@@ -261,9 +249,9 @@ function () {
     key: "createOfferSdp",
     value: function createOfferSdp(options) {
       return new Promise(function ($return, $error) {
-        return Promise.resolve(this._rtcPeer.createOffer(options)).then(function ($await_3) {
+        return Promise.resolve(this._rtcPeer.createOffer(options)).then(function ($await_1) {
           try {
-            this.localSdp = $await_3;
+            this.localSdp = $await_1;
 
             this._rtcPeer.setLocalDescription(this.localSdp);
 
@@ -278,9 +266,9 @@ function () {
     key: "createAnswerSdp",
     value: function createAnswerSdp(options) {
       return new Promise(function ($return, $error) {
-        return Promise.resolve(this._rtcPeer.createAnswer(options)).then(function ($await_4) {
+        return Promise.resolve(this._rtcPeer.createAnswer(options)).then(function ($await_2) {
           try {
-            this.localSdp = $await_4;
+            this.localSdp = $await_2;
 
             this._rtcPeer.setLocalDescription(this.localSdp);
 
@@ -294,7 +282,6 @@ function () {
   }, {
     key: "createDataChannel",
     value: function createDataChannel(channelName, dataChannelDict) {
-      if (!this._useDataChannel) return;
       if (!this._rtcPeer.createDataChannel) return;
 
       this._setDataChannel(this._rtcPeer.createDataChannel(channelName, dataChannelDict));
@@ -313,9 +300,9 @@ function () {
   }, {
     key: "send",
     value: function send(data) {
-      if (!this._useDataChannel || !this._dataChannel) return;
+      if (!this._dataChannel) return;
       if (this._dataChannel.readyState !== 'open') return;
-      if (!this._rtcPeer.iceConnectionState !== 'connected') return;
+      if (this._rtcPeer.iceConnectionState !== 'connected') return;
 
       this._dataChannel.send(data);
     }
@@ -354,19 +341,11 @@ function () {
       this._dataChannel = dataChannel;
 
       this._dataChannel.onopen = function () {
-        _this._isConnectedDataChannel = true;
-
-        _this._emitConnect();
+        _this._emitter.emit('open');
       };
 
       this._dataChannel.onmessage = function (_ref2) {
         var data = _ref2.data;
-
-        if (!_this.isConnected()) {
-          _this._dataQueue.push(data);
-
-          return;
-        }
 
         _this._emitter.emit('data', data);
       };
@@ -416,9 +395,7 @@ function () {
         var state = _this2._rtcPeer.iceConnectionState;
 
         if (state === 'connected') {
-          _this2._isConnectedPeer = true;
-
-          _this2._emitConnect();
+          _this2._emitter.emit('connect');
         }
 
         if (state === 'disconnected') {
@@ -427,40 +404,6 @@ function () {
 
         _this2._emitter.emit('changeIceState', state);
       };
-    }
-  }, {
-    key: "_emitConnect",
-    value: function _emitConnect() {
-      if (!this.isConnected()) return;
-
-      this._emitter.emit('connect');
-
-      var _iteratorNormalCompletion = true;
-      var _didIteratorError = false;
-      var _iteratorError = undefined;
-
-      try {
-        for (var _iterator = this._dataQueue[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-          var data = _step.value;
-
-          this._emitter.emit('data', data);
-        }
-      } catch (err) {
-        _didIteratorError = true;
-        _iteratorError = err;
-      } finally {
-        try {
-          if (!_iteratorNormalCompletion && _iterator.return != null) {
-            _iterator.return();
-          }
-        } finally {
-          if (_didIteratorError) {
-            throw _iteratorError;
-          }
-        }
-      }
-
-      this._dataQueue = [];
     }
   }]);
 
@@ -551,7 +494,11 @@ function () {
             channel: channel
           });
           peerConnector.addPeer(peer);
-          peer.createDataChannel(channelName, channelConfig);
+
+          if (channel) {
+            peer.createDataChannel(channelName, channelConfig);
+          }
+
           peer.on('iceCandidate', function (candidate) {
             _this.send(SIGNAL_EVENT.CANDIDATE, {
               receiver: peer.id,
