@@ -31,8 +31,8 @@ interface SignalEvent {
 
 interface StreamConstraints {
     screen?: boolean;
-    video?: boolean;
-    audio?: boolean;
+    video?: boolean | MediaTrackConstraints;
+    audio?: boolean | MediaTrackConstraints;
 }
 
 declare class Peer {
